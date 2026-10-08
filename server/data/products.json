@@ -1,0 +1,400 @@
+[
+  {
+    "_id": "66442428-25f8-4646-bef7-5e9d68875496",
+    "createdAt": "2026-10-08T05:48:33.117Z",
+    "updatedAt": "2026-10-08T08:30:12.562Z",
+    "name": "Custom Round Lampshade",
+    "slug": "custom-round-lampshade",
+    "description": "Custom Round Lampshade in the exact size, shape and color you desire.",
+    "sku": "CUSTOM-ROUND",
+    "basePrice": 50,
+    "images": [
+      "http://localhost:5000/uploads/1791438326749-2unnspu1qcz.webp"
+    ],
+    "status": "active",
+    "customizationFields": [
+      {
+        "name": "Top Diameter",
+        "label": "Top Diameter",
+        "type": "dropdown",
+        "required": false,
+        "order": 0,
+        "options": [
+          {
+            "label": "2.5 Inches",
+            "value": "2.5",
+            "priceAdjustment": 10,
+            "pricingType": "percentage",
+            "priceRanges": [],
+            "images": [],
+            "description": "",
+            "sku": ""
+          },
+          {
+            "label": "5 inches",
+            "value": "5",
+            "priceAdjustment": 20,
+            "pricingType": "percentage",
+            "priceRanges": [],
+            "images": [],
+            "description": "",
+            "sku": ""
+          }
+        ],
+        "pricingConfig": {
+          "pricingType": "fixed",
+          "perUnitPrice": 0,
+          "priceRanges": []
+        },
+        "conditions": [],
+        "placeholder": "",
+        "helpText": "",
+        "min": 0,
+        "max": 0
+      },
+      {
+        "name": "Bottom Diameter",
+        "label": "Bottom Diameter",
+        "type": "dropdown",
+        "required": false,
+        "order": 1,
+        "options": [
+          {
+            "label": "20 inches",
+            "value": "10",
+            "priceAdjustment": 10,
+            "pricingType": "percentage",
+            "priceRanges": [],
+            "images": [],
+            "description": "",
+            "sku": ""
+          },
+          {
+            "label": "40 inches",
+            "value": "20",
+            "priceAdjustment": 20,
+            "pricingType": "percentage",
+            "priceRanges": [],
+            "images": [],
+            "description": "",
+            "sku": ""
+          }
+        ],
+        "pricingConfig": {
+          "pricingType": "fixed",
+          "perUnitPrice": 0,
+          "priceRanges": []
+        },
+        "conditions": [],
+        "placeholder": "",
+        "helpText": "",
+        "min": 0,
+        "max": 0
+      },
+      {
+        "name": "Lampshade Slant Height",
+        "label": "Lampshade Slant Height",
+        "type": "dropdown",
+        "required": false,
+        "order": 2,
+        "options": [
+          {
+            "label": "60 inches",
+            "value": "60",
+            "priceAdjustment": 10,
+            "pricingType": "percentage",
+            "priceRanges": [],
+            "images": [],
+            "description": "",
+            "sku": ""
+          },
+          {
+            "label": "80 inches",
+            "value": "80",
+            "priceAdjustment": 20,
+            "pricingType": "percentage",
+            "priceRanges": [],
+            "images": [],
+            "description": "",
+            "sku": ""
+          }
+        ],
+        "pricingConfig": {
+          "pricingType": "fixed",
+          "perUnitPrice": 0,
+          "priceRanges": []
+        },
+        "conditions": [],
+        "placeholder": "",
+        "helpText": "",
+        "min": 0,
+        "max": 0
+      },
+      {
+        "name": "Attachment Style",
+        "label": "",
+        "type": "swatch",
+        "required": false,
+        "order": 3,
+        "options": [
+          {
+            "label": "Washer Clip",
+            "value": "washer",
+            "priceAdjustment": 10,
+            "pricingType": "percentage",
+            "priceRanges": [],
+            "images": [
+              "http://localhost:5000/uploads/1791439178839-edebcsggpo8.webp"
+            ],
+            "description": "",
+            "sku": ""
+          },
+          {
+            "label": "Bulb Clip",
+            "value": "bulb-clip",
+            "priceAdjustment": 0,
+            "pricingType": "fixed",
+            "priceRanges": [],
+            "images": [
+              "http://localhost:5000/uploads/1791439204045-oltqkkrt9wm.webp"
+            ],
+            "description": "",
+            "sku": ""
+          }
+        ],
+        "pricingConfig": {
+          "pricingType": "fixed",
+          "perUnitPrice": 0,
+          "priceRanges": []
+        },
+        "conditions": [],
+        "placeholder": "",
+        "helpText": "",
+        "min": 0,
+        "max": 0
+      },
+      {
+        "name": "Exterior Lampshade Covering",
+        "label": "Exterior Lampshade Covering",
+        "type": "swatch",
+        "required": false,
+        "order": 4,
+        "options": [
+          {
+            "label": "Natural Covering",
+            "value": "Natural Covering",
+            "priceAdjustment": 10.01,
+            "pricingType": "percentage",
+            "priceRanges": [],
+            "images": [
+              "http://localhost:5000/uploads/1791439276220-5w7p114zka3.webp"
+            ],
+            "description": "",
+            "sku": ""
+          },
+          {
+            "label": "Off white covering",
+            "value": "Off white covering",
+            "priceAdjustment": 10,
+            "pricingType": "percentage",
+            "priceRanges": [],
+            "images": [
+              "http://localhost:5000/uploads/1791439312143-ik552id500i.webp"
+            ],
+            "description": "",
+            "sku": ""
+          }
+        ],
+        "pricingConfig": {
+          "pricingType": "fixed",
+          "perUnitPrice": 0,
+          "priceRanges": []
+        },
+        "conditions": [],
+        "placeholder": "",
+        "helpText": "",
+        "min": 0,
+        "max": 0
+      }
+    ],
+    "configurations": [
+      {
+        "id": "config-1791440256943",
+        "selections": {
+          "Top Diameter": "2.5",
+          "Bottom Diameter": "10",
+          "Lampshade Slant Height": "60",
+          "Attachment Style": "washer",
+          "Exterior Lampshade Covering": "Natural Covering"
+        },
+        "sku": "",
+        "priceAdjustment": 0,
+        "status": "active",
+        "images": [
+          "http://localhost:5000/uploads/1791440254585-721bqyi6l58.webp",
+          "http://localhost:5000/uploads/1791440912680-i5ze7d3mn5i.webp",
+          "http://localhost:5000/uploads/1791441004455-p5awiwrnj1.webp"
+        ],
+        "configurationKey": "2.5|10|60|washer|natural covering"
+      },
+      {
+        "id": "config-1791441304738",
+        "selections": {
+          "Top Diameter": "2.5",
+          "Bottom Diameter": "10",
+          "Lampshade Slant Height": "60",
+          "Attachment Style": "washer",
+          "Exterior Lampshade Covering": "Off white covering"
+        },
+        "sku": "",
+        "priceAdjustment": 0,
+        "status": "active",
+        "images": [
+          "http://localhost:5000/uploads/1791441280287-86o2e6qsw5f.webp",
+          "http://localhost:5000/uploads/1791441288538-2567s5azv7c.webp",
+          "http://localhost:5000/uploads/1791441573272-pvzjt8lzs5s.webp"
+        ],
+        "configurationKey": "2.5|10|60|washer|off white covering"
+      },
+      {
+        "id": "config-1791441601346",
+        "selections": {
+          "Top Diameter": "2.5",
+          "Bottom Diameter": "10",
+          "Lampshade Slant Height": "60",
+          "Attachment Style": "bulb-clip",
+          "Exterior Lampshade Covering": "Natural Covering"
+        },
+        "sku": "",
+        "priceAdjustment": 0,
+        "status": "active",
+        "images": [
+          "http://localhost:5000/uploads/1791441586136-ue1ns4s6b0h.webp",
+          "http://localhost:5000/uploads/1791441627105-khbxdhyrujr.webp",
+          "http://localhost:5000/uploads/1791442111860-kztiieg720s.webp"
+        ],
+        "configurationKey": "2.5|10|60|bulb-clip|natural covering"
+      },
+      {
+        "id": "config-1791441659950",
+        "selections": {
+          "Top Diameter": "2.5",
+          "Bottom Diameter": "10",
+          "Lampshade Slant Height": "60",
+          "Attachment Style": "bulb-clip",
+          "Exterior Lampshade Covering": "Off white covering"
+        },
+        "sku": "",
+        "priceAdjustment": 0,
+        "status": "active",
+        "images": [
+          "http://localhost:5000/uploads/1791441644784-5kr7ffyevxj.webp",
+          "http://localhost:5000/uploads/1791441655862-lwm1u2jfh1.webp",
+          "http://localhost:5000/uploads/1791441658758-ruk1l6b2pw.webp"
+        ],
+        "configurationKey": "2.5|10|60|bulb-clip|off white covering"
+      },
+      {
+        "id": "config-1791441829469",
+        "selections": {
+          "Top Diameter": "2.5",
+          "Bottom Diameter": "10",
+          "Lampshade Slant Height": "80",
+          "Attachment Style": "washer",
+          "Exterior Lampshade Covering": "Natural Covering"
+        },
+        "sku": "",
+        "priceAdjustment": 0,
+        "status": "active",
+        "images": [
+          "http://localhost:5000/uploads/1791441808767-xl7a0tp7ed.webp",
+          "http://localhost:5000/uploads/1791441808966-am8qbmirg6l.webp",
+          "http://localhost:5000/uploads/1791441821858-68yknfvte6m.webp"
+        ],
+        "configurationKey": "2.5|10|80|washer|natural covering"
+      },
+      {
+        "id": "config-1791441890463",
+        "selections": {
+          "Top Diameter": "2.5",
+          "Bottom Diameter": "10",
+          "Lampshade Slant Height": "80",
+          "Attachment Style": "washer",
+          "Exterior Lampshade Covering": "Off white covering"
+        },
+        "sku": "",
+        "priceAdjustment": 0,
+        "status": "active",
+        "images": [
+          "http://localhost:5000/uploads/1791441855918-zh8qpuptte.webp",
+          "http://localhost:5000/uploads/1791441861055-c56or2hpy0a.webp",
+          "http://localhost:5000/uploads/1791441888282-gjxhsayyjwr.webp"
+        ],
+        "configurationKey": "2.5|10|80|washer|off white covering"
+      },
+      {
+        "id": "config-1791441988704",
+        "selections": {
+          "Top Diameter": "2.5",
+          "Bottom Diameter": "10",
+          "Lampshade Slant Height": "80",
+          "Attachment Style": "bulb-clip",
+          "Exterior Lampshade Covering": "Natural Covering"
+        },
+        "sku": "",
+        "priceAdjustment": 0,
+        "status": "active",
+        "images": [
+          "http://localhost:5000/uploads/1791441987068-tl6ldgkw6bm.webp",
+          "http://localhost:5000/uploads/1791441997665-hhz7w9e197b.webp",
+          "http://localhost:5000/uploads/1791442126717-9ylu99h192.webp"
+        ],
+        "configurationKey": "2.5|10|80|bulb-clip|natural covering"
+      },
+      {
+        "id": "config-1791442012270",
+        "selections": {
+          "Top Diameter": "2.5",
+          "Bottom Diameter": "10",
+          "Lampshade Slant Height": "80",
+          "Attachment Style": "bulb-clip",
+          "Exterior Lampshade Covering": "Off white covering"
+        },
+        "sku": "",
+        "priceAdjustment": 0,
+        "status": "active",
+        "images": [
+          "http://localhost:5000/uploads/1791442008653-3k4dvu2urnm.webp",
+          "http://localhost:5000/uploads/1791442008851-7rypan7nl47.webp",
+          "http://localhost:5000/uploads/1791442009050-71qxbyyose2.webp"
+        ],
+        "configurationKey": "2.5|10|80|bulb-clip|off white covering"
+      }
+    ],
+    "steps": [
+      {
+        "id": "step-1791438328838",
+        "title": "Dimensions",
+        "fieldNames": [
+          "Top Diameter",
+          "Bottom Diameter",
+          "Lampshade Slant Height"
+        ]
+      },
+      {
+        "id": "step-1791439229392",
+        "title": "Attachment Styles",
+        "fieldNames": [
+          "Attachment Style"
+        ]
+      },
+      {
+        "id": "step-1791439253548",
+        "title": "Exterior Lampshade Covering",
+        "fieldNames": [
+          "Exterior Lampshade Covering"
+        ]
+      }
+    ]
+  }
+]
