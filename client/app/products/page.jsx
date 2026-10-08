@@ -1,4 +1,5 @@
 'use client';
+import { Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -12,7 +13,7 @@ import Alert from '@mui/material/Alert';
 import TuneIcon from '@mui/icons-material/Tune';
 import { useGetProductsQuery } from '../../lib/productsApi';
 
-export default function ProductsPage() {
+function ProductsList() {
   const router = useRouter();
   const { data, isLoading, isError } = useGetProductsQuery({ status: 'active' });
   const products = data?.data || [];
@@ -87,5 +88,13 @@ export default function ProductsPage() {
         )}
       </Box>
     </Box>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}><CircularProgress /></Box>}>
+      <ProductsList />
+    </Suspense>
   );
 }
