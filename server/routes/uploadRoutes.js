@@ -27,7 +27,6 @@ router.post('/', upload.array('images', 20), async (req, res) => {
       return res.status(400).json({ success: false, message: 'No files uploaded.' });
     }
 
-    const baseUrl = process.env.SERVER_URL || `http://localhost:${process.env.PORT || 5000}`;
     const urls = [];
 
     for (const file of req.files) {
@@ -40,7 +39,7 @@ router.post('/', upload.array('images', 20), async (req, res) => {
         .webp({ quality: 82 })
         .toFile(dest);
 
-      urls.push(`${baseUrl}/uploads/${filename}`);
+      urls.push(`/uploads/${filename}`);
     }
 
     res.json({ success: true, urls });
