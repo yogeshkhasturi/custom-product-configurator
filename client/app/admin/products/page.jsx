@@ -22,6 +22,7 @@ import AddIcon from '@mui/icons-material/Add';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import { useGetProductsQuery, useDeleteProductMutation } from '../../../lib/productsApi';
+import { resolveImageUrl } from '../../../lib/pricingUtils';
 
 const statusColor = { active: 'success', inactive: 'default', draft: 'warning' };
 
@@ -98,7 +99,7 @@ export default function AdminProductsPage() {
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                             <Avatar
-                              src={p.images?.[0]}
+                              src={resolveImageUrl(p.images?.[0])}
                               variant="rounded"
                               sx={{ width: 40, height: 40, bgcolor: 'grey.100', border: '1px solid', borderColor: 'divider' }}
                             >

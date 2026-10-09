@@ -18,27 +18,14 @@ function applyPricingType(pricingType, priceAdjustment, priceRanges, basePrice, 
   }
 }
 
-// Rewrites image URLs to always be loadable in the current environment.
-// Images may be stored as http://localhost:5000/... (old/dev) or https://cloudways-host/... (production).
-// In development: convert localhost:5000 URLs to relative /uploads/... so the Next.js rewrite proxy serves them.
-// In production: rewrite localhost URLs to NEXT_PUBLIC_BACKEND_URL; Cloudways URLs pass through unchanged.
-const BACKEND_URL =
-  typeof window !== 'undefined'
-    ? (process.env.NEXT_PUBLIC_BACKEND_URL || '')
-    : '';
-
+// Always convert any absolute image URL to a relative /uploads/... path.
+// Next.js rewrites /uploads/* → backend in both dev and prod (see next.config.ts).
 export function resolveImageUrl(url) {
   if (!url || typeof url !== 'string') return url;
-  if (url.startsWith('/')) return url;
-
-  // Always convert localhost/127.0.0.1 URLs to relative paths — works in both dev and prod
-  // because Next.js rewrites /uploads/* → backend in dev, and in prod the server never
-  // generates localhost URLs (SERVER_URL is set to the real host).
-  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/.test(url)) {
-    const match = url.match(/\/uploads\/(.+)$/);
-    if (match) return `/uploads/${match[1]}`;
-  }
-
+  if (url.startsWith('/uploads/')) return url;
+  // Extract /uploads/<filename> from any absolute URL (localhost, Cloudways, etc.)
+  const match = url.match(/\/uploads\/(.+)$/);
+  if (match) return `/uploads/${match[1]}`;
   return url;
 }
 

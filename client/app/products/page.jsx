@@ -12,6 +12,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import TuneIcon from '@mui/icons-material/Tune';
 import { useGetProductsQuery } from '../../lib/productsApi';
+import { resolveImageUrl } from '../../lib/pricingUtils';
 
 function ProductsList() {
   const router = useRouter();
@@ -58,7 +59,7 @@ function ProductsList() {
                   <CardActionArea onClick={() => router.push(`/products/${p._id}`)} sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
                     <Box sx={{ position: 'relative', height: 240, bgcolor: 'grey.100', overflow: 'hidden' }}>
                       {p.images?.[0] ? (
-                        <img src={p.images[0]} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <img src={resolveImageUrl(p.images[0])} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                       ) : (
                         <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Typography color="text.disabled" variant="body2">No Image</Typography>

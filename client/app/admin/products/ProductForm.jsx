@@ -46,6 +46,7 @@ import TuneIcon from '@mui/icons-material/Tune';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { useCreateProductMutation, useUpdateProductMutation } from '../../../lib/productsApi';
 import ImageUploader from './ImageUploader';
+import { resolveImageUrl } from '../../../lib/pricingUtils';
 
 const FIELD_TYPES = ['select', 'dropdown', 'radio', 'checkbox', 'color', 'swatch', 'number', 'text', 'textarea'];
 const FIELD_TYPE_LABELS = {
@@ -834,7 +835,7 @@ export default function ProductForm({ initialData, mode = 'create' }) {
                           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                             {cfg.images.map((img, imgIdx) => (
                               <Box key={imgIdx} sx={{ position: 'relative', width: 40, height: 40, flexShrink: 0 }}>
-                                <img src={img} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, border: '1px solid #e0e0e0', display: 'block' }} />
+                                <img src={resolveImageUrl(img)} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, border: '1px solid #e0e0e0', display: 'block' }} />
                                 <Tooltip title="Remove image">
                                   <IconButton
                                     size="small"
