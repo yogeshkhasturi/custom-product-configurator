@@ -1,7 +1,7 @@
 const { validationResult } = require('express-validator');
 const slugify = require('slugify');
 const Product = require('../models/Product');
-const { calculateProductPrice, findMatchingConfiguration, generateConfigurationKey } = require('../services/pricingService');
+const { calculateProductPrice, findMatchingConfiguration, generateConfigurationKey, calculateStepsPrice } = require('../services/pricingService');
 
 const handleValidationErrors = (req, res) => {
   const errors = validationResult(req);
@@ -12,10 +12,12 @@ const handleValidationErrors = (req, res) => {
   return false;
 };
 
+const VALID_DISPLAY_MODES = ['normal', 'steps'];
+
 const createProduct = async (req, res) => {
   if (handleValidationErrors(req, res)) return;
   try {
-    const { name, description, sku, basePrice, images, status, customizationFields, configurations, steps } = req.body;
+    const { name, description, sku, basePrice, images, status, customizationFields, configurations, steps, configuratorDisplayMode, stepsConfig } = req.body;
     const slug = slugify(name, { lower: true, strict: true });
 
     const existing = await Product.findOne({ $or: [{ slug }, { sku }] });
@@ -26,6 +28,8 @@ const createProduct = async (req, res) => {
       });
     }
 
+    const displayMode = VALID_DISPLAY_MODES.includes(configuratorDisplayMode) ? configuratorDisplayMode : 'normal';
+
     const product = await Product.create({
       name, slug, description, sku, basePrice,
       images: images || [],
@@ -33,6 +37,8 @@ const createProduct = async (req, res) => {
       customizationFields: customizationFields || [],
       configurations: configurations || [],
       steps: steps || [],
+      configuratorDisplayMode: displayMode,
+      stepsConfig: stepsConfig || [],
     });
 
     res.status(201).json({ success: true, data: product });
@@ -61,7 +67,34 @@ const getProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ success: false, message: 'Product not found.' });
-    res.json({ success: true, data: product });
+
+    const productObj = product.toObject();
+
+    // Auto-build stepsConfig from legacy `steps` array if stepsConfig is empty
+    // and the product has steps defined (supports old data format)
+    if ((!productObj.stepsConfig || productObj.stepsConfig.length === 0) && productObj.steps?.length > 0) {
+      const customizationFields = productObj.customizationFields || [];
+      productObj.stepsConfig = productObj.steps
+        .filter((s) => s.title)
+        .map((s, i) => ({
+          id: s.id || `sc-${i}`,
+          title: s.title,
+          description: '',
+          type: 'step', // will be inferred on frontend
+          order: i,
+          enabled: true,
+          required: false,
+          fieldNames: s.fieldNames || [],
+          fields: (s.fieldNames || [])
+            .map((fname) => customizationFields.find((f) => f.name === fname))
+            .filter(Boolean),
+        }));
+      if (!productObj.configuratorDisplayMode) {
+        productObj.configuratorDisplayMode = 'steps';
+      }
+    }
+
+    res.json({ success: true, data: productObj });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -84,9 +117,15 @@ const updateProduct = async (req, res) => {
     if (basePrice !== undefined) product.basePrice = basePrice;
     if (images !== undefined) product.images = images;
     if (status !== undefined) product.status = status;
-    if (customizationFields !== undefined) product.customizationFields = customizationFields;
-    if (req.body.configurations !== undefined) product.configurations = req.body.configurations;
-    if (req.body.steps !== undefined) product.steps = req.body.steps;
+    if (customizationFields !== undefined) { product.customizationFields = customizationFields; product.markModified('customizationFields'); }
+    if (req.body.configurations !== undefined) { product.configurations = req.body.configurations; product.markModified('configurations'); }
+    if (req.body.steps !== undefined) { product.steps = req.body.steps; product.markModified('steps'); }
+    if (req.body.configuratorDisplayMode !== undefined) {
+      const mode = req.body.configuratorDisplayMode;
+      product.configuratorDisplayMode = VALID_DISPLAY_MODES.includes(mode) ? mode : 'normal';
+    }
+    if (req.body.stepsConfig !== undefined) product.stepsConfig = req.body.stepsConfig;
+    product.markModified('stepsConfig');
 
     await product.save();
     res.json({ success: true, data: product });
@@ -190,4 +229,77 @@ const resolveConfiguration = async (req, res) => {
   }
 };
 
-module.exports = { createProduct, getProducts, getProduct, updateProduct, deleteProduct, calculatePrice, resolveConfiguration };
+const calculateStepsPriceHandler = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ success: false, message: 'Product not found.' });
+    if (product.status !== 'active') return res.status(400).json({ success: false, message: 'Product is not available.' });
+
+    const productObj = product.toObject();
+
+    // Auto-build stepsConfig from legacy steps if needed
+    if ((!productObj.stepsConfig || productObj.stepsConfig.length === 0) && productObj.steps?.length > 0) {
+      const customizationFields = productObj.customizationFields || [];
+      productObj.stepsConfig = productObj.steps
+        .filter((s) => s.title)
+        .map((s, i) => ({
+          id: s.id || `sc-${i}`,
+          title: s.title,
+          description: '',
+          type: 'step',
+          order: i,
+          enabled: true,
+          required: false,
+          fieldNames: s.fieldNames || [],
+          fields: (s.fieldNames || [])
+            .map((fname) => customizationFields.find((f) => f.name === fname))
+            .filter(Boolean),
+        }));
+      if (!productObj.configuratorDisplayMode) {
+        productObj.configuratorDisplayMode = 'steps';
+      }
+    }
+
+    if (productObj.configuratorDisplayMode !== 'steps') {
+      return res.status(400).json({ success: false, message: 'Product does not use Steps UI.' });
+    }
+
+    const { stepSelections = {}, quantity = 1 } = req.body;
+
+    // Validate required fields per step
+    for (const step of (productObj.stepsConfig || [])) {
+      if (!step.enabled || step.type === 'review') continue;
+      const stepSel = stepSelections[step.id] || {};
+      for (const field of (step.fields || [])) {
+        if (!field.required) continue;
+        if (field.type === 'dimensions') {
+          for (const dim of (field.dimensions || [])) {
+            if (dim.required && (stepSel[field.name]?.[dim.name] === undefined || stepSel[field.name]?.[dim.name] === '')) {
+              return res.status(400).json({ success: false, message: `"${dim.label || dim.name}" is required.` });
+            }
+          }
+        } else {
+          const val = stepSel[field.name];
+          if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
+            return res.status(400).json({ success: false, message: `"${field.label || field.name}" is required.` });
+          }
+        }
+      }
+    }
+
+    const result = calculateStepsPrice(productObj, stepSelections);
+    const qty = Math.max(1, parseInt(quantity) || 1);
+    res.json({
+      success: true,
+      data: {
+        ...result,
+        quantity: qty,
+        totalPrice: Math.round(result.finalPrice * qty * 100) / 100,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+module.exports = { createProduct, getProducts, getProduct, updateProduct, deleteProduct, calculatePrice, resolveConfiguration, calculateStepsPrice: calculateStepsPriceHandler };

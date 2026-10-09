@@ -17,7 +17,8 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import AddIcon from '@mui/icons-material/Add';
 
 import { useGetProductByIdQuery, useResolveConfigurationMutation } from '../../../lib/productsApi';
-import { isFieldVisible } from '../../../lib/pricingUtils';
+import { isFieldVisible, resolveImageUrl, resolveImageUrls } from '../../../lib/pricingUtils';
+import StepsConfigurator from './steps/StepsConfigurator';
 
 // Numbered step badge (1, 2, 3)
 function StepBadge({ number }) {
@@ -172,6 +173,13 @@ function ProductDetail() {
   const [resolveConfiguration] = useResolveConfigurationMutation();
   const product = productData?.data ?? null;
 
+  const isStepsMode =
+    product?.configuratorDisplayMode === 'steps' ||
+    (!product?.configuratorDisplayMode && (
+      (product?.stepsConfig || []).some((s) => s.enabled !== false) ||
+      (product?.steps || []).length > 0
+    ));
+
   const [selections, setSelections] = useState({});
   const [fieldErrors, setFieldErrors] = useState({});
   const [pricePreview, setPricePreview] = useState(null);
@@ -179,12 +187,13 @@ function ProductDetail() {
   const [gallery, setGallery] = useState([]);
   const [configSku, setConfigSku] = useState(null);
   const [configResolving, setConfigResolving] = useState(false);
+  const [stepsPriceResult, setStepsPriceResult] = useState(null);
   const resolveReqId = useRef(0);
 
-  // Initialize selections with first option of each field
+  // Initialize selections with first option of each field (Normal UI)
   useEffect(() => {
-    if (!product) return;
-    setGallery(product.images || []);
+    if (!product || isStepsMode) return;
+    setGallery(resolveImageUrls(product.images || []));
     setActiveImage(0);
     const initial = {};
     (product.customizationFields || []).forEach((f) => {
@@ -193,11 +202,11 @@ function ProductDetail() {
       }
     });
     setSelections(initial);
-  }, [product?._id]);
+  }, [product?._id, isStepsMode]);
 
-  // Resolve configuration when selections change
+  // Resolve configuration when selections change (Normal UI)
   useEffect(() => {
-    if (!product) return;
+    if (!product || isStepsMode) return;
     const reqId = ++resolveReqId.current;
     const timer = setTimeout(async () => {
       setConfigResolving(true);
@@ -205,7 +214,7 @@ function ProductDetail() {
         const d = await resolveConfiguration({ id: product._id, selections }).unwrap();
         if (reqId !== resolveReqId.current) return;
         const newGallery = d.data.images?.length ? d.data.images : product.images || [];
-        setGallery(newGallery);
+        setGallery(resolveImageUrls(newGallery));
         setActiveImage(0);
         setConfigSku(d.data.sku);
         setPricePreview({
@@ -217,7 +226,7 @@ function ProductDetail() {
       } catch {
         if (reqId !== resolveReqId.current) return;
         const fallback = product.images || [];
-        setGallery(fallback);
+        setGallery(resolveImageUrls(fallback));
         setActiveImage(0);
       } finally {
         if (reqId === resolveReqId.current) setConfigResolving(false);
@@ -234,6 +243,92 @@ function ProductDetail() {
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 16 }}><CircularProgress /></Box>;
   if (isError) return <Alert severity="error" sx={{ m: 4 }}>Product not found.</Alert>;
   if (!product) return null;
+
+  // ── Configurator Display Mode ──
+  if (isStepsMode) {
+    return (
+      <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', color: '#0f172a' }}>
+        <Box sx={{ maxWidth: 1440, mx: 'auto', px: { xs: 1.5, sm: 2.5, md: 3 }, py: { xs: 2, sm: 2.5, md: 3 } }}>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', lg: 'minmax(380px, 40%) minmax(340px, 38%) minmax(260px, 22%)' },
+              gap: { xs: 2.5, md: 3 },
+              alignItems: 'start',
+            }}
+          >
+            {/* Gallery — reuse existing gallery logic */}
+            <Box sx={{ gridColumn: { xs: '1', md: '1', lg: '1' }, gridRow: { xs: 'auto', md: '1 / span 2', lg: 'auto' }, position: { md: 'sticky' }, top: { md: 24 } }}>
+              <Box sx={{ display: 'flex', flexDirection: { xs: 'column-reverse', sm: 'row' }, gap: { xs: 1.5, sm: 2 }, alignItems: 'stretch' }}>
+                {gallery?.length > 1 && (
+                  <Box sx={{ display: 'flex', flexDirection: { xs: 'row', sm: 'column' }, justifyContent: { xs: 'center', sm: 'flex-start' }, flexWrap: { xs: 'wrap', sm: 'nowrap' }, gap: 1.25 }}>
+                    {gallery.map((img, i) => (
+                      <Box key={i} onClick={() => setActiveImage(i)}
+                        sx={{ width: { xs: 60, sm: 64, md: 70 }, height: { xs: 60, sm: 64, md: 70 }, flexShrink: 0, borderRadius: '8px', overflow: 'hidden', cursor: 'pointer', bgcolor: '#fff', border: '2px solid', borderColor: i === activeImage ? '#0284c7' : '#e2e8f0', p: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
+                        <img src={img} alt={`Thumbnail ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+                <Box sx={{ flex: 1, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: { xs: 2, sm: 2.5, md: 3 }, height: { xs: 320, sm: 380, md: 440, lg: 480 }, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  {gallery?.length > 0 ? (
+                    <img key={gallery[activeImage]} src={gallery[activeImage]} alt={product.name} style={{ maxWidth: '92%', maxHeight: '92%', objectFit: 'contain', display: 'block' }} />
+                  ) : (
+                    <Typography color="text.secondary">No Image Available</Typography>
+                  )}
+                </Box>
+              </Box>
+            </Box>
+
+            {/* Steps Configurator */}
+            <Box sx={{ gridColumn: { xs: '1', md: '2', lg: '2' }, maxWidth: { xs: '100%', lg: 620 }, width: '100%' }}>
+              {/* Product header */}
+              <Box sx={{ mb: 2.5 }}>
+                <Typography variant="h5" sx={{ fontSize: { xs: 20, sm: 22, md: 24 }, fontWeight: 700, color: '#0f172a' }}>
+                  {product.name}
+                </Typography>
+                {product.description && (
+                  <Typography sx={{ fontSize: { xs: 12.5, sm: 13 }, color: '#64748b', mt: 0.5 }}>{product.description}</Typography>
+                )}
+                <Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: '#94a3b8', mt: 0.5 }}>SKU: {product.sku}</Typography>
+              </Box>
+              <StepsConfigurator
+                product={product}
+                gallery={gallery}
+                activeImage={activeImage}
+                setGallery={setGallery}
+                setActiveImage={setActiveImage}
+                onPriceResult={setStepsPriceResult}
+              />
+            </Box>
+
+            {/* Summary panel */}
+            <Box sx={{ gridColumn: { xs: '1', md: '2', lg: '3' }, position: { lg: 'sticky' }, top: { lg: 24 } }}>
+              <Box sx={{ bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: { xs: 2, sm: 2.5 } }}>
+                <Typography sx={{ fontSize: 15, fontWeight: 700, mb: 1.5 }}>Your Custom Lampshade</Typography>
+                {gallery?.length > 0 && (
+                  <Box sx={{ width: '100%', height: { xs: 140, sm: 160 }, borderRadius: '8px', border: '1px solid #e2e8f0', bgcolor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', mb: 2, p: 1 }}>
+                    <img src={gallery[activeImage] || gallery[0]} alt={product.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                  </Box>
+                )}
+                <Typography sx={{ fontSize: { xs: 28, sm: 34 }, fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
+                  ${(stepsPriceResult?.finalPrice ?? product.basePrice).toFixed(2)}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.5 }}>
+                  <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#16a34a' }} />
+                  <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#16a34a' }}>In Stock</Typography>
+                </Box>
+                <Divider sx={{ my: 2 }} />
+                <Typography sx={{ fontSize: 12, color: '#94a3b8' }}>Configure your lampshade using the steps on the left. The final price will update as you make selections.</Typography>
+              </Box>
+            </Box>
+          </Box>
+        </Box>
+      </Box>
+    );
+  }
+
+  // ── Normal UI (existing) ──
 
   const sortedFields = [...product.customizationFields].sort((a, b) => a.order - b.order);
   const finalPrice = pricePreview?.finalPrice ?? product.basePrice;
@@ -652,7 +747,7 @@ function ProductDetail() {
                         >
                           {opt.images?.[0] ? (
                             <img
-                              src={opt.images[0]}
+                              src={resolveImageUrl(opt.images[0])}
                               alt={opt.label}
                               style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
                             />
@@ -759,7 +854,7 @@ function ProductDetail() {
                         <Box sx={{ width: '100%', height: { xs: 72, sm: 84 }, bgcolor: '#f1f5f9' }}>
                           {opt.images?.[0] ? (
                             <img
-                              src={opt.images[0]}
+                              src={resolveImageUrl(opt.images[0])}
                               alt={opt.label}
                               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                             />

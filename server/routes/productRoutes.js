@@ -8,6 +8,7 @@ const {
   deleteProduct,
   calculatePrice,
   resolveConfiguration,
+  calculateStepsPrice,
 } = require('../controllers/productController');
 
 const router = express.Router();
@@ -25,5 +26,6 @@ router.put('/:id', updateProduct);
 router.delete('/:id', deleteProduct);
 router.post('/:id/calculate-price', calculatePrice);
 router.post('/:id/configuration', resolveConfiguration);
+router.post('/:id/steps-price', calculateStepsPrice);
 
 module.exports = router;

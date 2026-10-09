@@ -173,4 +173,72 @@ function findMatchingConfiguration(product, selections) {
   }) || null;
 }
 
-module.exports = { calculateProductPrice, isFieldVisible, generateConfigurationKey, findMatchingConfiguration };
+/**
+ * Calculate price for a Steps UI product from stepsConfig + stepSelections.
+ * stepSelections: { [stepId]: { [fieldName]: value } }
+ */
+function calculateStepsPrice(product, stepSelections = {}) {
+  const basePrice = product.basePrice;
+  const adjustments = [];
+  const stepsConfig = product.stepsConfig || [];
+
+  for (const step of stepsConfig) {
+    if (!step.enabled) continue;
+    const stepSel = stepSelections[step.id] || {};
+
+    for (const field of (step.fields || [])) {
+      const val = stepSel[field.name];
+      if (val === undefined || val === null || val === '') continue;
+
+      if (field.type === 'dimensions') {
+        // Each dimension sub-field
+        for (const dim of (field.dimensions || [])) {
+          const dimVal = val[dim.name];
+          if (dimVal === undefined || dimVal === null) continue;
+          const num = parseFloat(dimVal);
+          if (isNaN(num)) continue;
+          const range = (dim.priceRanges || []).find((r) => num >= r.min && num <= r.max);
+          if (range && range.amount !== 0) {
+            adjustments.push({ field: dim.label || dim.name, selection: `${num}`, amount: range.amount });
+          }
+        }
+        continue;
+      }
+
+      if (['select', 'radio', 'swatch', 'color', 'image_cards'].includes(field.type)) {
+        const option = (field.options || []).find((o) => o.value === val);
+        if (option && option.priceAdjustment) {
+          const amount = applyPricingType(option.pricingType || 'fixed', option.priceAdjustment, option.priceRanges || [], basePrice, val);
+          if (amount !== 0) adjustments.push({ field: field.label || field.name, selection: option.label || val, amount });
+        }
+        continue;
+      }
+
+      if (field.type === 'checkbox' || field.type === 'multi_select') {
+        const checked = Array.isArray(val) ? val : [val];
+        for (const v of checked) {
+          const option = (field.options || []).find((o) => o.value === v);
+          if (option && option.priceAdjustment) {
+            const amount = applyPricingType(option.pricingType || 'fixed', option.priceAdjustment, option.priceRanges || [], basePrice, v);
+            if (amount !== 0) adjustments.push({ field: field.label || field.name, selection: option.label || v, amount });
+          }
+        }
+        continue;
+      }
+
+      if (field.type === 'dropdown' || field.type === 'number') {
+        const option = (field.options || []).find((o) => o.value === val);
+        if (option && option.priceAdjustment) {
+          const amount = applyPricingType(option.pricingType || 'fixed', option.priceAdjustment, option.priceRanges || [], basePrice, val);
+          if (amount !== 0) adjustments.push({ field: field.label || field.name, selection: option.label || val, amount });
+        }
+      }
+    }
+  }
+
+  const totalAdjustment = adjustments.reduce((sum, a) => sum + a.amount, 0);
+  const finalPrice = Math.round((basePrice + totalAdjustment) * 100) / 100;
+  return { basePrice, adjustments, totalAdjustment, finalPrice };
+}
+
+module.exports = { calculateProductPrice, isFieldVisible, generateConfigurationKey, findMatchingConfiguration, calculateStepsPrice };

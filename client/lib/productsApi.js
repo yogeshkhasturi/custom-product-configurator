@@ -41,6 +41,13 @@ export const productsApiSlice = createApi({
         body: { selections },
       }),
     }),
+    calculateStepsPrice: builder.mutation({
+      query: ({ id, stepSelections, quantity }) => ({
+        url: `/products/${id}/steps-price`,
+        method: 'POST',
+        body: { stepSelections, quantity },
+      }),
+    }),
   }),
 });
 
@@ -52,6 +59,7 @@ export const {
   useDeleteProductMutation,
   useCalculatePriceMutation,
   useResolveConfigurationMutation,
+  useCalculateStepsPriceMutation,
 } = productsApiSlice;
 
 // Upload helpers (keep axios for multipart)

@@ -7,7 +7,30 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Tooltip from '@mui/material/Tooltip';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import { uploadApi } from '../../../lib/api';
+import { resolveImageUrl } from '../../../lib/pricingUtils';
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+
+async function uploadFiles(files) {
+  const form = new FormData();
+  files.forEach((f) => form.append('images', f));
+  const res = await fetch(`${API_BASE}/upload`, { method: 'POST', body: form });
+  const json = await res.json();
+  if (!res.ok || !json.success) throw new Error(json.message || `Upload failed (${res.status})`);
+  return json.urls;
+}
+
+async function removeFile(url) {
+  try {
+    await fetch(`${API_BASE}/upload`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+  } catch {
+    // ignore delete errors
+  }
+}
 
 /**
  * ImageUploader
@@ -35,10 +58,11 @@ export default function ImageUploader({ images, value, onChange, max, maxImages,
     setUploadError('');
     setUploading(true);
     try {
-      const res = await uploadApi.upload(toUpload);
-      onChange([...urls, ...res.data.urls]);
-    } catch {
-      setUploadError('Upload failed. Please try again.');
+      const newUrls = await uploadFiles(toUpload);
+      onChange([...urls, ...newUrls]);
+    } catch (err) {
+      console.error('[ImageUploader] upload error:', err);
+      setUploadError(err?.message || 'Upload failed. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -46,7 +70,7 @@ export default function ImageUploader({ images, value, onChange, max, maxImages,
 
   const handleRemove = (url, idx) => {
     onChange(urls.filter((_, i) => i !== idx));
-    uploadApi.remove(url).catch(() => {});
+    removeFile(url);
   };
 
   const onDrop = (e) => {
@@ -144,7 +168,7 @@ export default function ImageUploader({ images, value, onChange, max, maxImages,
                 }}
               >
                 <img
-                  src={url}
+                  src={resolveImageUrl(url)}
                   alt={`image-${i + 1}`}
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />

@@ -72,6 +72,20 @@ const emptyField = () => ({
 const emptyCondition = () => ({ field: '', operator: 'eq', value: '' });
 const emptyRange = () => ({ min: '', max: '', amount: '' });
 const emptyStep = () => ({ id: `step-${Date.now()}`, title: '', fieldNames: [] });
+
+const emptyStepConfig = () => ({
+  id: `sc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  title: '',
+  description: '',
+  type: 'image_cards',
+  order: 0,
+  enabled: true,
+  required: true,
+  fieldNames: [],
+});
+const emptyStepField = () => ({ name: '', label: '', type: 'image_cards', required: false, options: [], helpText: '', dimensions: [] });
+const emptyStepOption = () => ({ label: '', value: '', priceAdjustment: 0, images: [], description: '' });
+const emptyDimension = () => ({ name: '', label: '', unit: 'inches', min: 1, max: 100, step: 1, required: true, priceRanges: [] });
 const VARIATION_FIELD_TYPES = ['select', 'dropdown', 'radio', 'color', 'swatch', 'number', 'checkbox'];
 
 function generateVariations(customizationFields) {
@@ -128,9 +142,22 @@ export default function ProductForm({ initialData, mode = 'create' }) {
     basePrice: initialData?.basePrice ?? '',
     images: initialData?.images || [],
     status: initialData?.status || 'active',
+    configuratorDisplayMode: initialData?.configuratorDisplayMode || 'normal',
     customizationFields: (initialData?.customizationFields || []).map((f) => ({ ...f, _expanded: false })),
     configurations: (initialData?.configurations || []).map((c) => ({ ...c, images: c.images || [] })),
     steps: initialData?.steps || [],
+    stepsConfig: (initialData?.stepsConfig && initialData.stepsConfig.length > 0)
+      ? initialData.stepsConfig
+      : (initialData?.steps || []).map((s, i) => ({
+          id: s.id || `sc-${Date.now()}-${i}`,
+          title: s.title,
+          description: '',
+          type: 'image_cards',
+          order: i,
+          enabled: true,
+          required: false,
+          fieldNames: s.fieldNames || [],
+        })),
   });
 
   const setField = (key, val) => setForm((p) => ({ ...p, [key]: val }));
@@ -146,6 +173,40 @@ export default function ProductForm({ initialData, mode = 'create' }) {
     [arr[si], arr[target]] = [arr[target], arr[si]];
     setField('steps', arr);
   };
+
+  // Steps Config (Steps UI)
+  const addStepConfig = () => {
+    const s = emptyStepConfig();
+    s.order = form.stepsConfig.length;
+    setField('stepsConfig', [...form.stepsConfig, s]);
+  };
+  const removeStepConfig = (si) => setField('stepsConfig', form.stepsConfig.filter((_, i) => i !== si));
+  const updateStepConfig = (si, key, val) => setField('stepsConfig', form.stepsConfig.map((s, i) => i === si ? { ...s, [key]: val } : s));
+  const moveStepConfig = (si, dir) => {
+    const arr = [...form.stepsConfig];
+    const t = si + dir;
+    if (t < 0 || t >= arr.length) return;
+    [arr[si], arr[t]] = [arr[t], arr[si]];
+    arr.forEach((s, i) => (s.order = i));
+    setField('stepsConfig', arr);
+  };
+  const [expandedStepConfigs, setExpandedStepConfigs] = useState({});
+  const toggleStepConfigExpand = (si) => setExpandedStepConfigs((p) => ({ ...p, [si]: !p[si] }));
+
+  // StepConfig fields
+  const addStepField = (si) => updateStepConfig(si, 'fields', [...(form.stepsConfig[si].fields || []), emptyStepField()]);
+  const removeStepField = (si, fi) => updateStepConfig(si, 'fields', form.stepsConfig[si].fields.filter((_, i) => i !== fi));
+  const updateStepField = (si, fi, key, val) => updateStepConfig(si, 'fields', form.stepsConfig[si].fields.map((f, i) => i === fi ? { ...f, [key]: val } : f));
+
+  // StepConfig field options
+  const addStepFieldOption = (si, fi) => updateStepField(si, fi, 'options', [...(form.stepsConfig[si].fields[fi].options || []), emptyStepOption()]);
+  const removeStepFieldOption = (si, fi, oi) => updateStepField(si, fi, 'options', form.stepsConfig[si].fields[fi].options.filter((_, i) => i !== oi));
+  const updateStepFieldOption = (si, fi, oi, key, val) => updateStepField(si, fi, 'options', form.stepsConfig[si].fields[fi].options.map((o, i) => i === oi ? { ...o, [key]: val } : o));
+
+  // StepConfig dimensions
+  const addDimension = (si, fi) => updateStepField(si, fi, 'dimensions', [...(form.stepsConfig[si].fields[fi].dimensions || []), emptyDimension()]);
+  const removeDimension = (si, fi, di) => updateStepField(si, fi, 'dimensions', form.stepsConfig[si].fields[fi].dimensions.filter((_, i) => i !== di));
+  const updateDimension = (si, fi, di, key, val) => updateStepField(si, fi, 'dimensions', form.stepsConfig[si].fields[fi].dimensions.map((d, i) => i === di ? { ...d, [key]: val } : d));
 
   // Customization fields
   const addField = () => {
@@ -248,6 +309,7 @@ export default function ProductForm({ initialData, mode = 'create' }) {
       const payload = {
         name: form.name, description: form.description, sku: form.sku,
         basePrice: parseFloat(form.basePrice), images: form.images, status: form.status,
+        configuratorDisplayMode: form.configuratorDisplayMode,
         customizationFields: form.customizationFields.map(({ _expanded, ...f }, i) => ({
           ...f, order: i,
           min: f.min !== '' ? Number(f.min) : undefined,
@@ -257,6 +319,44 @@ export default function ProductForm({ initialData, mode = 'create' }) {
           conditions: f.conditions.filter((c) => c.field && c.value !== ''),
         })),
         steps: form.steps.filter((s) => s.title.trim()),
+        stepsConfig: form.stepsConfig.map((s, i) => {
+          const resolvedFields = (s.fieldNames || []).map((fname) => {
+            const cf = form.customizationFields.find((f) => f.name === fname);
+            if (!cf) return null;
+            const { _expanded, ...cleanField } = cf;
+            return {
+              ...cleanField,
+              options: (cleanField.options || []).map((o) => ({
+                ...o,
+                images: o.images || [],
+                priceAdjustment: parseFloat(o.priceAdjustment) || 0,
+                priceRanges: (o.priceRanges || []).map((r) => ({ min: Number(r.min), max: Number(r.max), amount: Number(r.amount) })),
+              })),
+            };
+          }).filter(Boolean);
+
+          // Infer step type from fields if not explicitly set
+          let stepType = s.type;
+          if (stepType === 'step' || !stepType) {
+            if (s.title?.toLowerCase() === 'review') stepType = 'review';
+            else if (resolvedFields.some((f) => /diameter|slant|height|width|depth|dimension/i.test(f.name))) stepType = 'dimensions';
+            else if (resolvedFields.some((f) => f.type === 'swatch' || f.type === 'color')) stepType = 'swatch_grid';
+            else if (resolvedFields.some((f) => f.type === 'select' || f.type === 'dropdown' || f.type === 'checkbox')) stepType = 'finishing';
+            else stepType = 'image_cards';
+          }
+
+          return {
+            id: s.id,
+            title: s.title,
+            description: s.description || '',
+            type: stepType,
+            order: i,
+            enabled: s.enabled !== false,
+            required: s.required,
+            fieldNames: s.fieldNames || [],
+            fields: stepType === 'review' ? [] : resolvedFields,
+          };
+        }),
         configurations: (form.configurations || []).map((c) => ({ ...c, images: c.images || [], configurationKey: getConfigKey(c.selections), priceAdjustment: parseFloat(c.priceAdjustment) || 0 })),
       };
       if (mode === 'create') await createProduct(payload).unwrap();
@@ -310,48 +410,196 @@ export default function ProductForm({ initialData, mode = 'create' }) {
         </Paper>
       </Section>
 
-      {/* Steps */}
-      <Section
-        title="Configurator Steps"
-        subtitle="Group fields into named steps for the product configurator"
-        icon={<AccountTreeIcon />}
-        action={<Button size="small" startIcon={<AddIcon />} onClick={addStep}>Add Step</Button>}
-      >
-        {form.steps.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">No steps defined. Fields will appear in a single page.</Typography>
-        ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {form.steps.map((step, si) => (
-              <Paper key={step.id} variant="outlined" sx={{ p: 2 }}>
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1.5 }}>
-                  <Typography variant="body2" color="text.secondary" sx={{ minWidth: 24 }}>#{si + 1}</Typography>
-                  <TextField size="small" label="Step Title" value={step.title} onChange={(e) => updateStep(si, 'title', e.target.value)} sx={{ flex: 1 }} />
-                  <Tooltip title="Move Up"><span><IconButton size="small" onClick={() => moveStep(si, -1)} disabled={si === 0}><ArrowUpwardIcon fontSize="small" /></IconButton></span></Tooltip>
-                  <Tooltip title="Move Down"><span><IconButton size="small" onClick={() => moveStep(si, 1)} disabled={si === form.steps.length - 1}><ArrowDownwardIcon fontSize="small" /></IconButton></span></Tooltip>
-                  <IconButton size="small" color="error" onClick={() => removeStep(si)}><DeleteIcon fontSize="small" /></IconButton>
-                </Box>
-                <FormControl fullWidth size="small">
-                  <InputLabel>Fields in this step</InputLabel>
-                  <Select
-                    multiple
-                    value={step.fieldNames}
-                    onChange={(e) => updateStep(si, 'fieldNames', e.target.value)}
-                    input={<OutlinedInput label="Fields in this step" />}
-                    renderValue={(selected) => selected.join(', ')}
-                  >
-                    {form.customizationFields.map((f) => (
-                      <MenuItem key={f.name} value={f.name}>
-                        <Checkbox checked={step.fieldNames.includes(f.name)} />
-                        <ListItemText primary={f.label || f.name} />
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Paper>
-            ))}
-          </Box>
-        )}
+      {/* Configurator Display Mode */}
+      <Section title="Configurator Display Mode" subtitle="Choose how customers configure this product" icon={<TuneIcon />}>
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>Display Mode</InputLabel>
+                <Select
+                  value={form.configuratorDisplayMode}
+                  label="Display Mode"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setForm((p) => {
+                      let nextStepsConfig = p.stepsConfig;
+                      if (val === 'steps' && (!nextStepsConfig || nextStepsConfig.length === 0) && p.steps?.length > 0) {
+                        nextStepsConfig = p.steps.map((s, i) => ({
+                          id: s.id || `sc-${Date.now()}-${i}`,
+                          title: s.title,
+                          description: '',
+                          type: 'image_cards',
+                          order: i,
+                          enabled: true,
+                          required: false,
+                          fieldNames: s.fieldNames || [],
+                        }));
+                      }
+                      return { ...p, configuratorDisplayMode: val, stepsConfig: nextStepsConfig };
+                    });
+                  }}
+                >
+                  <MenuItem value="normal">Normal UI (all options on one page)</MenuItem>
+                  <MenuItem value="steps">Steps UI (multi-step configurator)</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={8}>
+              <Alert severity={form.configuratorDisplayMode === 'steps' ? 'info' : 'success'} sx={{ py: 0.5 }}>
+                {form.configuratorDisplayMode === 'steps'
+                  ? 'Steps UI: customers will navigate through configurable steps. Configure steps below.'
+                  : 'Normal UI: all customization fields appear on a single product page.'}
+              </Alert>
+            </Grid>
+          </Grid>
+        </Paper>
       </Section>
+
+      {/* Steps Config — only shown when Steps UI is selected */}
+      {form.configuratorDisplayMode === 'steps' && (
+        <Section
+          title="Steps UI Configuration"
+          subtitle="Define the steps customers navigate through. Assign existing Customization Fields to each step."
+          icon={<AccountTreeIcon />}
+          action={<Button size="small" startIcon={<AddIcon />} onClick={addStepConfig}>Add Step</Button>}
+        >
+          {form.customizationFields.length === 0 && (
+            <Alert severity="info" sx={{ mb: 2 }}>Add Customization Fields below first, then assign them to steps here.</Alert>
+          )}
+          {form.stepsConfig.length === 0 ? (
+            <Alert severity="warning">No steps configured. Add at least one step and a Review step at the end.</Alert>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {form.stepsConfig.map((step, si) => (
+                <Paper key={step.id} variant="outlined" sx={{ overflow: 'hidden' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.5, bgcolor: 'grey.50', borderBottom: expandedStepConfigs[si] ? '1px solid' : 'none', borderColor: 'divider' }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ minWidth: 24 }}>#{si + 1}</Typography>
+                    <Typography variant="subtitle2" sx={{ flex: 1 }}>
+                      {step.title || 'Untitled Step'}
+                      {step.type === 'review' && <Chip label="review" size="small" sx={{ ml: 1 }} />}
+                      {!step.enabled && <Chip label="Disabled" size="small" color="default" sx={{ ml: 0.5 }} />}
+                    </Typography>
+                    <FormControlLabel
+                      control={<Switch size="small" checked={step.enabled} onChange={(e) => updateStepConfig(si, 'enabled', e.target.checked)} />}
+                      label="Enabled"
+                      sx={{ mr: 0 }}
+                    />
+                    <Tooltip title="Move Up"><span><IconButton size="small" onClick={() => moveStepConfig(si, -1)} disabled={si === 0}><ArrowUpwardIcon fontSize="small" /></IconButton></span></Tooltip>
+                    <Tooltip title="Move Down"><span><IconButton size="small" onClick={() => moveStepConfig(si, 1)} disabled={si === form.stepsConfig.length - 1}><ArrowDownwardIcon fontSize="small" /></IconButton></span></Tooltip>
+                    <IconButton size="small" onClick={() => toggleStepConfigExpand(si)}>{expandedStepConfigs[si] ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}</IconButton>
+                    <IconButton size="small" color="error" onClick={() => { if (confirm('Delete this step?')) removeStepConfig(si); }}><DeleteIcon fontSize="small" /></IconButton>
+                  </Box>
+
+                  {expandedStepConfigs[si] && (
+                    <Box sx={{ p: 2 }}>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} md={4}>
+                          <TextField fullWidth size="small" label="Step Title" value={step.title} onChange={(e) => updateStepConfig(si, 'title', e.target.value)} required />
+                        </Grid>
+                        <Grid item xs={12} md={3}>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Step Type</InputLabel>
+                            <Select value={step.type || 'image_cards'} label="Step Type" onChange={(e) => updateStepConfig(si, 'type', e.target.value)}>
+                              <MenuItem value="image_cards">Image Cards</MenuItem>
+                              <MenuItem value="swatch_grid">Swatch Grid</MenuItem>
+                              <MenuItem value="dimensions">Dimensions</MenuItem>
+                              <MenuItem value="finishing">Finishing / Dropdowns</MenuItem>
+                              <MenuItem value="review">Review (final step)</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        <Grid item xs={12} md={3}>
+                          <FormControlLabel control={<Switch checked={!!step.required} onChange={(e) => updateStepConfig(si, 'required', e.target.checked)} />} label="Required" />
+                        </Grid>
+                        <Grid item xs={12}>
+                          <TextField fullWidth size="small" label="Step Description (shown to customer)" value={step.description || ''} onChange={(e) => updateStepConfig(si, 'description', e.target.value)} />
+                        </Grid>
+                      </Grid>
+
+                      {step.type !== 'review' && (
+                        <>
+                          <Divider sx={{ my: 2 }} />
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Fields in this step</InputLabel>
+                            <Select
+                              multiple
+                              value={step.fieldNames || []}
+                              onChange={(e) => updateStepConfig(si, 'fieldNames', e.target.value)}
+                              input={<OutlinedInput label="Fields in this step" />}
+                              renderValue={(selected) => selected.join(', ')}
+                            >
+                              {form.customizationFields.map((f) => (
+                                <MenuItem key={f.name} value={f.name}>
+                                  <Checkbox checked={(step.fieldNames || []).includes(f.name)} />
+                                  <ListItemText primary={f.label || f.name} secondary={f.type} />
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                          {(step.fieldNames || []).length === 0 && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                              No fields assigned. Select fields from your Customization Fields list.
+                            </Typography>
+                          )}
+                        </>
+                      )}
+                      {step.type === 'review' && (
+                        <Alert severity="info" sx={{ mt: 2 }}>The Review step automatically shows all selections from previous steps. No fields needed.</Alert>
+                      )}
+                    </Box>
+                  )}
+                </Paper>
+              ))}
+            </Box>
+          )}
+        </Section>
+      )}
+
+      {/* Steps (Normal UI grouping) — only shown for Normal UI */}
+      {form.configuratorDisplayMode === 'normal' && (
+        <Section
+          title="Configurator Steps"
+          subtitle="Group fields into named steps for the product configurator"
+          icon={<AccountTreeIcon />}
+          action={<Button size="small" startIcon={<AddIcon />} onClick={addStep}>Add Step</Button>}
+        >
+          {form.steps.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">No steps defined. Fields will appear in a single page.</Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {form.steps.map((step, si) => (
+                <Paper key={step.id} variant="outlined" sx={{ p: 2 }}>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1.5 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ minWidth: 24 }}>#{si + 1}</Typography>
+                    <TextField size="small" label="Step Title" value={step.title} onChange={(e) => updateStep(si, 'title', e.target.value)} sx={{ flex: 1 }} />
+                    <Tooltip title="Move Up"><span><IconButton size="small" onClick={() => moveStep(si, -1)} disabled={si === 0}><ArrowUpwardIcon fontSize="small" /></IconButton></span></Tooltip>
+                    <Tooltip title="Move Down"><span><IconButton size="small" onClick={() => moveStep(si, 1)} disabled={si === form.steps.length - 1}><ArrowDownwardIcon fontSize="small" /></IconButton></span></Tooltip>
+                    <IconButton size="small" color="error" onClick={() => removeStep(si)}><DeleteIcon fontSize="small" /></IconButton>
+                  </Box>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Fields in this step</InputLabel>
+                    <Select
+                      multiple
+                      value={step.fieldNames}
+                      onChange={(e) => updateStep(si, 'fieldNames', e.target.value)}
+                      input={<OutlinedInput label="Fields in this step" />}
+                      renderValue={(selected) => selected.join(', ')}
+                    >
+                      {form.customizationFields.map((f) => (
+                        <MenuItem key={f.name} value={f.name}>
+                          <Checkbox checked={step.fieldNames.includes(f.name)} />
+                          <ListItemText primary={f.label || f.name} />
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Paper>
+              ))}
+            </Box>
+          )}
+        </Section>
+      )}
 
       {/* Customization Fields */}
       <Section
