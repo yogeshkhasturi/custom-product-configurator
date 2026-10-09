@@ -57,9 +57,9 @@ function ProductsList() {
                   }}
                 >
                   <CardActionArea onClick={() => router.push(`/products/${p._id}`)} sx={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
-                    <Box sx={{ position: 'relative', height: 240, bgcolor: 'grey.100', overflow: 'hidden' }}>
+                    <Box sx={{ position: 'relative', height: 240, bgcolor: '#fff', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 1 }}>
                       {p.images?.[0] ? (
-                        <img src={resolveImageUrl(p.images[0])} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        <img src={resolveImageUrl(p.images[0])} alt={p.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }} />
                       ) : (
                         <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                           <Typography color="text.disabled" variant="body2">No Image</Typography>
