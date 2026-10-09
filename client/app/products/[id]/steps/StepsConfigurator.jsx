@@ -627,7 +627,7 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
             startIcon={<ArrowBackIcon />}
             onClick={handleBack}
             disabled={currentStep === 0}
-            sx={{ minWidth: 100, borderRadius : "12px" }}
+            sx={{ minWidth: 100, borderRadius: "12px" }}
           >
             Back
           </Button>
@@ -635,7 +635,7 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
             variant="contained"
             endIcon={<ArrowForwardIcon />}
             onClick={handleContinue}
-            sx={{ minWidth: 140, borderRadius : "12px" }}
+            sx={{ minWidth: 140, borderRadius: "12px" }}
           >
             {currentStep === totalSteps - 2 ? 'Review' : 'Continue'}
           </Button>
