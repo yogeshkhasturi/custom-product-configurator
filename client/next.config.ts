@@ -17,22 +17,12 @@ const nextConfig: NextConfig = {
   experimental: {
     agentFeedback: true,
   },
-  cacheComponents: true,
-  partialPrefetching: true,
   images: {
     remotePatterns: [
       { protocol: 'http', hostname: 'localhost', port: '5000', pathname: '/uploads/**' },
       { protocol: 'http', hostname: '127.0.0.1', port: '5000', pathname: '/uploads/**' },
       { protocol: 'https', hostname: 'phpstack-1344824-6717026.cloudwaysapps.com', pathname: '/uploads/**' },
     ],
-  },
-  turbopack: {
-    rules: {
-      "*.css": {
-        loaders: ["@tailwindcss/turbopack"],
-        as: "*.css",
-      },
-    },
   },
 };
 
