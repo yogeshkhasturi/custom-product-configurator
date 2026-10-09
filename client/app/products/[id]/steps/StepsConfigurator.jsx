@@ -185,17 +185,122 @@ function resolveStepFields(step, customizationFields) {
 function inferStepType(step, fields) {
   if (step.type && step.type !== 'step') return step.type;
   if (!fields.length) return 'image_cards';
-  // Dimension fields: dropdown type with dimension-related names
   if (fields.every((f) => /diameter|slant|height|width|depth|dimension/i.test(f.name) && (f.type === 'dropdown' || f.type === 'number'))) return 'dimensions';
-  // Swatch/color fields
   if (fields.some((f) => f.type === 'swatch' || f.type === 'color')) return 'swatch_grid';
-  // Select/dropdown/checkbox fields
   if (fields.some((f) => f.type === 'select' || f.type === 'dropdown' || f.type === 'checkbox')) return 'finishing';
   return 'image_cards';
 }
 
+function DraggableSteps({ steps, currentStep, onGoToStep, onReorder }) {
+  const [dragging, setDragging] = useState(null);
+  const [dragOver, setDragOver] = useState(null);
+  const containerRef = useRef(null);
+  const pillRefs = useRef([]);
+  const pointerDownIdx = useRef(null);
+  const didDrag = useRef(false);
+
+  const handlePointerDown = (e, i) => {
+    pointerDownIdx.current = i;
+    didDrag.current = false;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e, i) => {
+    if (pointerDownIdx.current === null) return;
+    didDrag.current = true;
+    if (dragging === null) setDragging(pointerDownIdx.current);
+
+    // Find which pill the pointer is over
+    const x = e.clientX;
+    const y = e.clientY;
+    let overIdx = null;
+    pillRefs.current.forEach((el, idx) => {
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
+        overIdx = idx;
+      }
+    });
+    setDragOver(overIdx);
+  };
+
+  const handlePointerUp = (e, i) => {
+    const from = pointerDownIdx.current;
+    pointerDownIdx.current = null;
+    const wasDrag = didDrag.current;
+    didDrag.current = false;
+    setDragging(null);
+    setDragOver(null);
+
+    if (!wasDrag) { onGoToStep(i); return; }
+    if (from === null || dragOver === null || from === dragOver) return;
+
+    const reordered = [...steps];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(dragOver, 0, moved);
+    const newIdx = reordered.findIndex((s) => s.id === steps[currentStep].id);
+    onReorder(reordered, newIdx);
+  };
+
+  return (
+    <Box ref={containerRef} sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2.5 }}>
+      {steps.map((step, i) => {
+        const isActive = i === currentStep;
+        const isDone = i < currentStep;
+        const isOver = dragOver === i && dragging !== null && dragging !== i;
+        return (
+          <Box
+            key={step.id}
+            ref={(el) => { pillRefs.current[i] = el; }}
+            onPointerDown={(e) => handlePointerDown(e, i)}
+            onPointerMove={(e) => handlePointerMove(e, i)}
+            onPointerUp={(e) => handlePointerUp(e, i)}
+            sx={{
+              display: 'flex', alignItems: 'center', gap: 0.75,
+              px: 1.5, py: 0.5, borderRadius: '20px',
+              cursor: dragging === i ? 'grabbing' : 'grab',
+              fontSize: 12, fontWeight: 600, userSelect: 'none', touchAction: 'none',
+              border: '2px solid',
+              borderColor: isOver ? '#6366f1' : isActive ? '#0f172a' : isDone ? '#94a3b8' : '#e2e8f0',
+              bgcolor: isActive ? '#0f172a' : isDone ? '#f8fafc' : '#fff',
+              color: isActive ? '#fff' : isDone ? '#64748b' : '#94a3b8',
+              opacity: dragging === i ? 0.5 : 1,
+              transform: isOver ? 'scale(1.05)' : 'none',
+              transition: 'opacity 0.15s, transform 0.15s, border-color 0.15s',
+              '&:hover': { borderColor: '#0f172a', color: isActive ? '#fff' : '#0f172a' },
+            }}
+          >
+            <Box sx={{
+              width: 18, height: 18, borderRadius: '50%', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700,
+              bgcolor: isActive ? '#fff' : isDone ? '#64748b' : '#e2e8f0',
+              color: isActive ? '#0f172a' : '#fff', flexShrink: 0,
+            }}>
+              {isDone ? '✓' : i + 1}
+            </Box>
+            {step.title || 'Step'}
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
 export default function StepsConfigurator({ product, gallery, activeImage, setGallery, setActiveImage, onPriceResult }) {
   const customizationFields = product.customizationFields || [];
+
+  const [currentStep, setCurrentStep] = useState(0);
+  const [orderedSteps, setOrderedSteps] = useState(null);
+  const [stepSelections, setStepSelections] = useState({});
+  const [stepErrors, setStepErrors] = useState({});
+  const [priceResult, setPriceResult] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [cartSuccess, setCartSuccess] = useState(false);
+
+  const [calculateStepsPrice] = useCalculateStepsPriceMutation();
+  const [resolveConfiguration] = useResolveConfigurationMutation();
+  const priceReqId = useRef(0);
 
   // Build resolved steps: embed fields + correct type
   let rawSteps = (product.stepsConfig || []).filter((s) => s.enabled !== false).sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -242,21 +347,9 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
   });
 
   const reviewIdx = stepsConfig.findIndex((s) => s.type === 'review');
-  // Ensure review is last; if not present, we'll show it as a virtual last step
-  const configSteps = reviewIdx >= 0 ? stepsConfig : [...stepsConfig, { id: '__review__', title: 'Review', type: 'review', enabled: true, order: stepsConfig.length, fields: [] }];
+  const baseConfigSteps = reviewIdx >= 0 ? stepsConfig : [...stepsConfig, { id: '__review__', title: 'Review', type: 'review', enabled: true, order: stepsConfig.length, fields: [] }];
+  const configSteps = orderedSteps ?? baseConfigSteps;
   const totalSteps = configSteps.length;
-
-  const [currentStep, setCurrentStep] = useState(0);
-  const [stepSelections, setStepSelections] = useState({});
-  const [stepErrors, setStepErrors] = useState({});
-  const [priceResult, setPriceResult] = useState(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
-  const [cartSuccess, setCartSuccess] = useState(false);
-
-  const [calculateStepsPrice] = useCalculateStepsPriceMutation();
-  const [resolveConfiguration] = useResolveConfigurationMutation();
-  const priceReqId = useRef(0);
 
   // Initialize default values from stepsConfig
   useEffect(() => {
@@ -349,7 +442,8 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
         }
 
         setGallery(resolveImageUrls(newGallery));
-        setActiveImage(0);
+        // Only reset activeImage if gallery actually changed, preserve step-based index otherwise
+        setActiveImage((prev) => Math.min(prev, newGallery.length - 1));
       }
     }, 200);
     return () => clearTimeout(timer);
@@ -372,17 +466,22 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
       setStepErrors((prev) => ({ ...prev, [step.id]: errors }));
       return;
     }
-    setCurrentStep((s) => Math.min(s + 1, totalSteps - 1));
+    const next = Math.min(currentStep + 1, totalSteps - 1);
+    setCurrentStep(next);
+    setActiveImage(Math.min(next, gallery.length - 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleBack = () => {
-    setCurrentStep((s) => Math.max(s - 1, 0));
+    const prev = Math.max(currentStep - 1, 0);
+    setCurrentStep(prev);
+    setActiveImage(Math.min(prev, gallery.length - 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleGoToStep = (idx) => {
     setCurrentStep(idx);
+    setActiveImage(Math.min(idx, gallery.length - 1));
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -458,6 +557,14 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
 
   return (
     <Box>
+      {/* Draggable step pills */}
+      <DraggableSteps
+        steps={configSteps}
+        currentStep={currentStep}
+        onGoToStep={handleGoToStep}
+        onReorder={(reordered, newIdx) => { setOrderedSteps(reordered); setCurrentStep(newIdx); }}
+      />
+
       {/* Progress bar */}
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -520,7 +627,7 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
             startIcon={<ArrowBackIcon />}
             onClick={handleBack}
             disabled={currentStep === 0}
-            sx={{ minWidth: 100 }}
+            sx={{ minWidth: 100, borderRadius : "12px" }}
           >
             Back
           </Button>
@@ -528,7 +635,7 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
             variant="contained"
             endIcon={<ArrowForwardIcon />}
             onClick={handleContinue}
-            sx={{ minWidth: 140 }}
+            sx={{ minWidth: 140, borderRadius : "12px" }}
           >
             {currentStep === totalSteps - 2 ? 'Review' : 'Continue'}
           </Button>
