@@ -6,6 +6,7 @@ const mongoose = require("mongoose");
 
 const productRoutes = require("./routes/productRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
+const fixImagesRoute = require("./routes/fixImagesRoute");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -70,6 +71,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // --------------------------------------------------
 app.use("/api/products", productRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/fix-images", fixImagesRoute);
 
 // --------------------------------------------------
 // Health check

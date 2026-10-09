@@ -20,10 +20,12 @@ function applyPricingType(pricingType, priceAdjustment, priceRanges, basePrice, 
 
 // Always convert any absolute image URL to a relative /uploads/... path.
 // Next.js rewrites /uploads/* → backend in both dev and prod (see next.config.ts).
+// In production on Cloudways, Express serves /uploads/* as static files directly.
 export function resolveImageUrl(url) {
   if (!url || typeof url !== 'string') return url;
+  // Already relative — pass through
   if (url.startsWith('/uploads/')) return url;
-  // Extract /uploads/<filename> from any absolute URL (localhost, Cloudways, etc.)
+  // Extract /uploads/<filename> from ANY absolute URL (localhost, Cloudways, any host)
   const match = url.match(/\/uploads\/(.+)$/);
   if (match) return `/uploads/${match[1]}`;
   return url;
