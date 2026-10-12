@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -26,7 +26,23 @@ function validateStep(step, stepSel = {}) {
   if (!step.required) return errors;
   for (const field of (step.fields || [])) {
     if (!field.required) continue;
-    if (field.type === 'dimensions') {
+    // Numeric dimensions sub-array style
+    if (field.dimensions?.length > 0) {
+      const dimVal = stepSel[field.name] || {};
+      for (const dim of field.dimensions) {
+        if (!dim.required) continue;
+        const v = dimVal[dim.name];
+        if (v === undefined || v === null || v === '') {
+          errors[`${field.name}.${dim.name}`] = `${dim.label || dim.name} is required`;
+        } else {
+          const num = parseFloat(v);
+          if (isNaN(num)) errors[`${field.name}.${dim.name}`] = 'Must be a number';
+          else if (dim.min !== undefined && num < dim.min) errors[`${field.name}.${dim.name}`] = `Min ${dim.min}`;
+          else if (dim.max !== undefined && num > dim.max) errors[`${field.name}.${dim.name}`] = `Max ${dim.max}`;
+        }
+      }
+    } else if (field.type === 'dimensions') {
+      // Legacy dimensions field shape
       const dimVal = stepSel[field.name] || {};
       for (const dim of (field.dimensions || [])) {
         if (!dim.required) continue;
@@ -42,6 +58,7 @@ function validateStep(step, stepSel = {}) {
       }
     } else {
       const val = stepSel[field.name];
+      // Explicit check — does NOT use truthiness, so 0 is treated as a valid selection
       const empty = val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0);
       if (empty) errors[field.name] = `${field.label || field.name} is required`;
     }
@@ -52,10 +69,25 @@ function validateStep(step, stepSel = {}) {
 // Stepper for a single dropdown-type dimension field (e.g. Top Diameter)
 function StepDimensionField({ field, value, onChange, error }) {
   const options = field.options || [];
-  const idx = options.findIndex((o) => o.value === value);
-  const effectiveIdx = idx < 0 && options.length > 0 ? 0 : idx;
+
+  // Normalize both sides to string for comparison to handle number/string type mismatches
+  const idx = options.findIndex((o) => String(o.value) === String(value));
+  // If not found, try to find closest or default to 0
+  const effectiveIdx = idx >= 0 ? idx : 0;
+
+  // Always sync value to the actual option value on first render or mismatch
   const current = options[effectiveIdx] ?? null;
-  const display = current ? (current.label || current.value).replace(/\s*inches/i, '').trim() : '—';
+  const display = current ? String(current.label || current.value).replace(/\s*inches/i, '').trim() : '—';
+
+  const canDecrement = effectiveIdx > 0;
+  const canIncrement = effectiveIdx < options.length - 1;
+
+  const handleDecrement = () => {
+    if (canDecrement) onChange(options[effectiveIdx - 1].value);
+  };
+  const handleIncrement = () => {
+    if (canIncrement) onChange(options[effectiveIdx + 1].value);
+  };
 
   return (
     <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -76,16 +108,30 @@ function StepDimensionField({ field, value, onChange, error }) {
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid', borderColor: error ? 'error.main' : '#cbd5e1', borderRadius: '8px', bgcolor: '#fff', height: { xs: 38, sm: 42 }, px: 0.5 }}>
         <Box component="button" type="button"
-          onClick={() => effectiveIdx > 0 && onChange(options[effectiveIdx - 1].value)}
-          disabled={effectiveIdx <= 0}
-          sx={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', bgcolor: 'transparent', cursor: effectiveIdx <= 0 ? 'not-allowed' : 'pointer', opacity: effectiveIdx <= 0 ? 0.3 : 1, color: '#475569', borderRadius: '6px', '&:hover:not(:disabled)': { bgcolor: '#f1f5f9' } }}>
+          onClick={handleDecrement}
+          disabled={!canDecrement}
+          sx={{
+            width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: 'none', bgcolor: 'transparent', cursor: canDecrement ? 'pointer' : 'not-allowed',
+            opacity: canDecrement ? 1 : 0.3, color: '#475569', borderRadius: '6px',
+            transition: 'all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)',
+            '&:hover:not(:disabled)': { bgcolor: '#f1f5f9', color: '#0f172a' },
+            '&:active:not(:disabled)': { transform: 'scale(0.88)' },
+          }}>
           <RemoveIcon sx={{ fontSize: 18 }} />
         </Box>
         <Typography sx={{ fontSize: { xs: 14, sm: 16 }, fontWeight: 700, color: '#0f172a', userSelect: 'none' }}>{display}</Typography>
         <Box component="button" type="button"
-          onClick={() => effectiveIdx < options.length - 1 && onChange(options[effectiveIdx + 1].value)}
-          disabled={effectiveIdx >= options.length - 1}
-          sx={{ width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', bgcolor: 'transparent', cursor: effectiveIdx >= options.length - 1 ? 'not-allowed' : 'pointer', opacity: effectiveIdx >= options.length - 1 ? 0.3 : 1, color: '#475569', borderRadius: '6px', '&:hover:not(:disabled)': { bgcolor: '#f1f5f9' } }}>
+          onClick={handleIncrement}
+          disabled={!canIncrement}
+          sx={{
+            width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: 'none', bgcolor: 'transparent', cursor: canIncrement ? 'pointer' : 'not-allowed',
+            opacity: canIncrement ? 1 : 0.3, color: '#475569', borderRadius: '6px',
+            transition: 'all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)',
+            '&:hover:not(:disabled)': { bgcolor: '#f1f5f9', color: '#0f172a' },
+            '&:active:not(:disabled)': { transform: 'scale(0.88)' },
+          }}>
           <AddIcon sx={{ fontSize: 18 }} />
         </Box>
       </Box>
@@ -99,12 +145,31 @@ function StepDimensionField({ field, value, onChange, error }) {
 function StepContent({ step, stepValue, onChange, errors }) {
   if (!step.fields?.length) return <Typography sx={{ color: '#94a3b8', fontSize: 13 }}>No fields configured for this step.</Typography>;
 
-  const firstField = step.fields[0];
-
   if (step.type === 'dimensions') {
-    // Dimensions step: render all fields as steppers side by side
+    const firstField = step.fields[0];
+    // Numeric dimensions sub-array style (StepDimensions component)
+    if (firstField?.dimensions?.length > 0) {
+      return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          {step.fields.map((field) => (
+            <StepDimensions
+              key={field.name}
+              field={field}
+              value={stepValue[field.name] || {}}
+              onChange={(val) => onChange({ ...stepValue, [field.name]: val })}
+              errors={Object.fromEntries(
+                Object.entries(errors)
+                  .filter(([k]) => k.startsWith(`${field.name}.`))
+                  .map(([k, v]) => [k.replace(`${field.name}.`, ''), v])
+              )}
+            />
+          ))}
+        </Box>
+      );
+    }
+    // Dropdown-options style — render each field as a +/− counter
     return (
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: `repeat(${Math.min(step.fields.length, 3)}, 1fr)`, sm: `repeat(${step.fields.length}, 1fr)` }, gap: { xs: 1, sm: 1.5, md: 2 } }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(step.fields.length, 3)}, 1fr)`, gap: { xs: 1.5, sm: 2 } }}>
         {step.fields.map((field) => (
           <StepDimensionField
             key={field.name}
@@ -183,10 +248,17 @@ function resolveStepFields(step, customizationFields) {
 
 // Infer step type from its fields if type is missing or generic
 function inferStepType(step, fields) {
-  if (step.type && step.type !== 'step') return step.type;
-  if (!fields.length) return 'image_cards';
+  if (step.type === 'review') return 'review';
+  // If the admin explicitly set a non-generic step type, honour it first
+  if (step.type && step.type !== 'step' && step.type !== 'image_cards') return step.type;
+  if (!fields.length) return step.type || 'image_cards';
+  // Numeric dimensions sub-array style
+  if (fields.some((f) => f.dimensions?.length > 0)) return 'dimensions';
+  // Dropdown-options dimension fields — check BEFORE finishing since dropdown is also used for dims
   if (fields.every((f) => /diameter|slant|height|width|depth|dimension/i.test(f.name) && (f.type === 'dropdown' || f.type === 'number'))) return 'dimensions';
+  // Swatch / color fields
   if (fields.some((f) => f.type === 'swatch' || f.type === 'color')) return 'swatch_grid';
+  // Select / dropdown / checkbox
   if (fields.some((f) => f.type === 'select' || f.type === 'dropdown' || f.type === 'checkbox')) return 'finishing';
   return 'image_cards';
 }
@@ -250,7 +322,7 @@ function DraggableSteps({ steps, currentStep, onGoToStep, onReorder }) {
         const isOver = dragOver === i && dragging !== null && dragging !== i;
         return (
           <Box
-            key={step.id}
+            key={step.id || `step-${i}`}
             ref={(el) => { pillRefs.current[i] = el; }}
             onPointerDown={(e) => handlePointerDown(e, i)}
             onPointerMove={(e) => handlePointerMove(e, i)}
@@ -266,16 +338,21 @@ function DraggableSteps({ steps, currentStep, onGoToStep, onReorder }) {
               color: isActive ? '#fff' : isDone ? '#64748b' : '#94a3b8',
               opacity: dragging === i ? 0.5 : 1,
               transform: isOver ? 'scale(1.05)' : 'none',
-              transition: 'opacity 0.15s, transform 0.15s, border-color 0.15s',
-              '&:hover': { borderColor: '#0f172a', color: isActive ? '#fff' : '#0f172a' },
+              boxShadow: isActive ? '0 0 0 3px rgba(15, 23, 42, 0.12)' : 'none',
+              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+              '&:hover': { borderColor: '#0f172a', color: isActive ? '#fff' : '#0f172a', transform: 'translateY(-1px)' },
             }}
           >
-            <Box sx={{
-              width: 18, height: 18, borderRadius: '50%', display: 'flex',
-              alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700,
-              bgcolor: isActive ? '#fff' : isDone ? '#64748b' : '#e2e8f0',
-              color: isActive ? '#0f172a' : '#fff', flexShrink: 0,
-            }}>
+            <Box
+              className={isDone ? 'anim-badge-pop' : ''}
+              sx={{
+                width: 18, height: 18, borderRadius: '50%', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700,
+                bgcolor: isActive ? '#fff' : isDone ? '#64748b' : '#e2e8f0',
+                color: isActive ? '#0f172a' : '#fff', flexShrink: 0,
+                transition: 'all 0.2s ease',
+              }}
+            >
               {isDone ? '✓' : i + 1}
             </Box>
             {step.title || 'Step'}
@@ -286,7 +363,7 @@ function DraggableSteps({ steps, currentStep, onGoToStep, onReorder }) {
   );
 }
 
-export default function StepsConfigurator({ product, gallery, activeImage, setGallery, setActiveImage, onPriceResult }) {
+export default function StepsConfigurator({ product, gallery, activeImage, setGallery, setActiveImage, onPriceResult, onConfigResolving }) {
   const customizationFields = product.customizationFields || [];
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -341,109 +418,139 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
     }
   }
 
-  const stepsConfig = rawSteps.map((s) => {
+  // Memoize stepsConfig so the initialization effect captures a stable reference
+  const stepsConfig = useMemo(() => rawSteps.map((s) => {
     const fields = resolveStepFields(s, customizationFields);
     return { ...s, fields, type: inferStepType(s, fields) };
-  });
+  }), [product._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const reviewIdx = stepsConfig.findIndex((s) => s.type === 'review');
-  const baseConfigSteps = reviewIdx >= 0 ? stepsConfig : [...stepsConfig, { id: '__review__', title: 'Review', type: 'review', enabled: true, order: stepsConfig.length, fields: [] }];
+  const baseConfigSteps = useMemo(
+    () => reviewIdx >= 0 ? stepsConfig : [...stepsConfig, { id: '__review__', title: 'Review', type: 'review', enabled: true, order: stepsConfig.length, fields: [] }],
+    [stepsConfig, reviewIdx]
+  );
   const configSteps = orderedSteps ?? baseConfigSteps;
   const totalSteps = configSteps.length;
 
-  // Initialize default values from stepsConfig
+  // Initialize default values from stepsConfig — only sets a field if no selection exists yet.
+  // The effect runs only when product._id changes. We read stepSelections directly from state;
+  // this is safe because the effect is not triggered by stepSelections changes.
   useEffect(() => {
-    const initial = {};
-    for (const step of configSteps) {
-      if (step.type === 'review') continue;
-      const stepInit = {};
-      for (const field of (step.fields || [])) {
-        if (field.type === 'dimensions') {
-          const dimInit = {};
-          for (const dim of (field.dimensions || [])) {
-            dimInit[dim.name] = dim.defaultValue !== undefined && dim.defaultValue !== '' ? dim.defaultValue : (dim.min || 1);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setStepSelections((prev) => {
+      const next = { ...prev };
+      for (const step of configSteps) {
+        if (step.type === 'review') continue;
+        const existing = next[step.id] || {};
+        const stepInit = { ...existing };
+        for (const field of (step.fields || [])) {
+          // Never overwrite an already-set selection
+          if (stepInit[field.name] !== undefined) continue;
+          if (field.dimensions?.length > 0) {
+            const dimInit = {};
+            for (const dim of field.dimensions) {
+              dimInit[dim.name] = dim.defaultValue !== undefined && dim.defaultValue !== '' ? dim.defaultValue : (dim.min ?? 1);
+            }
+            if (Object.keys(dimInit).length) stepInit[field.name] = dimInit;
+          } else if (field.type === 'dimensions') {
+            const dimInit = {};
+            for (const dim of (field.dimensions || [])) {
+              dimInit[dim.name] = dim.defaultValue !== undefined && dim.defaultValue !== '' ? dim.defaultValue : (dim.min || 1);
+            }
+            if (Object.keys(dimInit).length) stepInit[field.name] = dimInit;
+          } else if (field.defaultValue !== undefined && field.defaultValue !== '') {
+            stepInit[field.name] = field.defaultValue;
+          } else if (field.options?.length > 0) {
+            const firstOpt = field.options[0];
+            stepInit[field.name] = (firstOpt.value !== undefined && firstOpt.value !== '') ? firstOpt.value : firstOpt.label;
           }
-          if (Object.keys(dimInit).length) stepInit[field.name] = dimInit;
-        } else if (field.defaultValue !== undefined && field.defaultValue !== '') {
-          stepInit[field.name] = field.defaultValue;
-        } else if (field.options?.length > 0) {
-          stepInit[field.name] = field.options[0].value;
         }
+        next[step.id] = stepInit;
       }
-      if (Object.keys(stepInit).length) initial[step.id] = stepInit;
-    }
-    setStepSelections(initial);
-  }, [product._id]);
+      console.log('[Init] stepSelections:', JSON.stringify(next, null, 2));
+      return next;
+    });
+  }, [product._id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Recalculate price and resolve gallery whenever selections change
   useEffect(() => {
+    onConfigResolving?.(true);
     const reqId = ++priceReqId.current;
     const timer = setTimeout(async () => {
-      // 1. Seed flatSelections with defaults from all customizationFields so resolveConfiguration has all attributes
-      const flatSelections = {};
-      (customizationFields || []).forEach((f) => {
-        if (f.defaultValue !== undefined && f.defaultValue !== '') {
-          flatSelections[f.name] = f.defaultValue;
-        } else if (f.options?.length > 0) {
-          flatSelections[f.name] = f.options[0].value;
-        }
-      });
-
-      // 2. Overlay actual step selections
-      for (const step of configSteps) {
-        if (step.type === 'review') continue;
-        const stepSel = stepSelections[step.id] || {};
-        for (const field of (step.fields || [])) {
-          const val = stepSel[field.name];
-          if (val === undefined || val === null || val === '') continue;
-
-          if (field.type === 'dimensions' && typeof val === 'object') {
-            for (const [dKey, dVal] of Object.entries(val)) {
-              if (dVal !== undefined && dVal !== '') flatSelections[dKey] = dVal;
-            }
-          } else {
-            flatSelections[field.name] = val;
+      try {
+        // 1. Seed flatSelections with defaults from all customizationFields so resolveConfiguration has all attributes
+        const flatSelections = {};
+        (customizationFields || []).forEach((f) => {
+          if (f.defaultValue !== undefined && f.defaultValue !== '') {
+            flatSelections[f.name] = f.defaultValue;
+          } else if (f.options?.length > 0) {
+            const firstOpt = f.options[0];
+            flatSelections[f.name] = (firstOpt.value !== undefined && firstOpt.value !== '') ? firstOpt.value : firstOpt.label;
           }
-        }
-      }
+        });
 
-      const [priceRes, configRes] = await Promise.allSettled([
-        calculateStepsPrice({ id: product._id, stepSelections, quantity: 1 }).unwrap(),
-        resolveConfiguration({ id: product._id, selections: flatSelections }).unwrap(),
-      ]);
-      if (reqId !== priceReqId.current) return;
-      if (priceRes.status === 'fulfilled') {
-        setPriceResult(priceRes.value.data);
-        onPriceResult?.(priceRes.value.data);
-      }
-      if (configRes.status === 'fulfilled') {
-        let newGallery = configRes.value.data?.images;
+        // 2. Overlay actual step selections
+        for (const step of configSteps) {
+          if (step.type === 'review') continue;
+          const stepSel = stepSelections[step.id] || {};
+          for (const field of (step.fields || [])) {
+            const val = stepSel[field.name];
+            if (val === undefined || val === null || val === '') continue;
 
-        // Fallback: If no variant configuration matched specific images, check if currently selected options have images
-        if (!newGallery || !newGallery.length) {
-          for (const step of configSteps) {
-            if (step.type === 'review') continue;
-            const stepSel = stepSelections[step.id] || {};
-            for (const field of (step.fields || [])) {
-              const val = stepSel[field.name];
-              if (!val) continue;
-              const opt = (field.options || []).find((o) => o.value === val);
-              if (opt?.images?.length) {
-                newGallery = opt.images;
-                break;
+            if (field.type === 'dimensions' && typeof val === 'object') {
+              for (const [dKey, dVal] of Object.entries(val)) {
+                if (dVal !== undefined && dVal !== '') flatSelections[dKey] = dVal;
               }
+            } else {
+              flatSelections[field.name] = val;
             }
-            if (newGallery?.length) break;
           }
         }
 
-        if (!newGallery || !newGallery.length) {
-          newGallery = product.images || [];
+        const [priceRes, configRes] = await Promise.allSettled([
+          calculateStepsPrice({ id: product._id, stepSelections, quantity: 1 }).unwrap(),
+          resolveConfiguration({ id: product._id, selections: flatSelections }).unwrap(),
+        ]);
+        if (reqId !== priceReqId.current) return;
+        if (priceRes.status === 'fulfilled') {
+          setPriceResult(priceRes.value.data);
+          onPriceResult?.(priceRes.value.data);
         }
+        if (configRes.status === 'fulfilled') {
+          let newGallery = configRes.value.data?.images;
 
-        setGallery(resolveImageUrls(newGallery));
-        // Only reset activeImage if gallery actually changed, preserve step-based index otherwise
-        setActiveImage((prev) => Math.min(prev, newGallery.length - 1));
+          // Fallback: If no variant configuration matched specific images, check if currently selected options have images
+          if (!newGallery || !newGallery.length) {
+            for (const step of configSteps) {
+              if (step.type === 'review') continue;
+              const stepSel = stepSelections[step.id] || {};
+              for (const field of (step.fields || [])) {
+                const val = stepSel[field.name];
+                if (!val) continue;
+                const opt = (field.options || []).find((o) => String(o.value) === String(val) || String(o.label) === String(val));
+                if (opt?.images?.length) {
+                  newGallery = opt.images;
+                  break;
+                }
+              }
+              if (newGallery?.length) break;
+            }
+          }
+
+          if (!newGallery || !newGallery.length) {
+            newGallery = product.images || [];
+          }
+
+          setGallery(resolveImageUrls(newGallery));
+          // Only reset activeImage if gallery actually changed, preserve step-based index otherwise
+          setActiveImage((prev) => Math.min(prev, newGallery.length - 1));
+        }
+      } catch (err) {
+        console.error('Failed to resolve configuration/price:', err);
+      } finally {
+        if (reqId === priceReqId.current) {
+          onConfigResolving?.(false);
+        }
       }
     }, 200);
     return () => clearTimeout(timer);
@@ -456,7 +563,7 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
   const updateStepSelection = useCallback((stepId, val) => {
     setStepSelections((prev) => ({ ...prev, [stepId]: val }));
     setStepErrors((prev) => ({ ...prev, [stepId]: {} }));
-  }, []);
+  }, [setStepSelections, setStepErrors]);
 
   const handleContinue = () => {
     if (isReviewStep) return;
@@ -536,7 +643,7 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
     }
   };
 
-  if (!stepsConfig.length) {
+  if (!configSteps.length) {
     return (
       <Alert severity="warning" sx={{ m: 2 }}>
         This product is configured for Steps UI but has no steps defined. Please contact the administrator.
@@ -578,7 +685,15 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
         <LinearProgress
           variant="determinate"
           value={progress}
-          sx={{ height: 4, borderRadius: 2, bgcolor: '#e2e8f0', '& .MuiLinearProgress-bar': { bgcolor: '#0f172a' } }}
+          sx={{
+            height: 6,
+            borderRadius: 3,
+            bgcolor: '#e2e8f0',
+            '& .MuiLinearProgress-bar': {
+              background: 'linear-gradient(90deg, #0284c7 0%, #0f172a 100%)',
+              transition: 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+            },
+          }}
         />
       </Box>
 
@@ -595,7 +710,19 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
       </Box>
 
       {/* Step content */}
-      <Box sx={{ bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: { xs: 2, sm: 2.5 }, mb: 3 }}>
+      <Box
+        key={currentStepConfig?.id || `step-panel-${currentStep}`}
+        className="anim-fade-in-up"
+        sx={{
+          bgcolor: '#fff',
+          border: '1px solid #e2e8f0',
+          borderRadius: '12px',
+          p: { xs: 2, sm: 2.5 },
+          mb: 3,
+          boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)',
+          transition: 'all 0.25s ease',
+        }}
+      >
         {isReviewStep ? (
           <StepReview
             product={product}
@@ -624,25 +751,69 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
         <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
           <Button
             variant="outlined"
-            startIcon={<ArrowBackIcon />}
+            startIcon={<ArrowBackIcon className="back-icon" sx={{ transition: 'transform 0.2s ease' }} />}
             onClick={handleBack}
             disabled={currentStep === 0}
-            sx={{ minWidth: 100, borderRadius: "12px" }}
+            sx={{
+              minWidth: 100,
+              borderRadius: "12px",
+              borderColor: '#cbd5e1',
+              color: '#334155',
+              transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              '&:hover:not(:disabled)': {
+                borderColor: '#0f172a',
+                bgcolor: '#f1f5f9',
+                color: '#0f172a !important',
+                transform: 'translateX(-2px)',
+                '& .back-icon': { transform: 'translateX(-3px)', color: '#0f172a' },
+              },
+            }}
           >
             Back
           </Button>
           <Button
+            className="btn-shine-effect"
             variant="contained"
-            endIcon={<ArrowForwardIcon />}
+            endIcon={<ArrowForwardIcon className="next-icon" sx={{ transition: 'transform 0.2s ease' }} />}
             onClick={handleContinue}
-            sx={{ minWidth: 140, borderRadius: "12px" }}
+            sx={{
+              minWidth: 140,
+              borderRadius: "12px",
+              bgcolor: '#0f172a',
+              transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+              boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)',
+              '&:hover': {
+                bgcolor: '#1e293b',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 8px 20px rgba(15, 23, 42, 0.25)',
+                '& .next-icon': { transform: 'translateX(3px)' },
+              },
+            }}
           >
             {currentStep === totalSteps - 2 ? 'Review' : 'Continue'}
           </Button>
         </Box>
       )}
       {isReviewStep && currentStep > 0 && (
-        <Button variant="outlined" startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mt: 1 }}>
+        <Button
+          variant="outlined"
+          startIcon={<ArrowBackIcon className="back-icon" sx={{ transition: 'transform 0.2s ease' }} />}
+          onClick={handleBack}
+          sx={{
+            mt: 1,
+            borderRadius: '12px',
+            borderColor: '#cbd5e1',
+            color: '#334155',
+            transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+            '&:hover:not(:disabled)': {
+              borderColor: '#0f172a',
+              bgcolor: '#f1f5f9',
+              color: '#0f172a !important',
+              transform: 'translateX(-2px)',
+              '& .back-icon': { transform: 'translateX(-3px)', color: '#0f172a' },
+            },
+          }}
+        >
           Back to Edit
         </Button>
       )}

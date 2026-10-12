@@ -122,18 +122,30 @@ export default function StepReview({
       <Divider sx={{ my: 2 }} />
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
         <Typography sx={{ fontSize: 13, fontWeight: 600 }}>Quantity</Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', border: '1px solid #cbd5e1', borderRadius: '8px', overflow: 'hidden', bgcolor: '#fff' }}>
           <Box component="button" type="button" onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-            sx={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', bgcolor: 'transparent', cursor: 'pointer', '&:hover': { bgcolor: '#f1f5f9' } }}>
+            sx={{
+              width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: 'none', bgcolor: 'transparent', cursor: 'pointer', color: '#475569',
+              transition: 'all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)',
+              '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' },
+              '&:active': { transform: 'scale(0.88)' },
+            }}>
             <RemoveIcon sx={{ fontSize: 16 }} />
           </Box>
-          <Typography sx={{ px: 2, fontSize: 14, fontWeight: 700, minWidth: 32, textAlign: 'center' }}>{quantity}</Typography>
+          <Typography sx={{ px: 2, fontSize: 14, fontWeight: 700, minWidth: 32, textAlign: 'center', userSelect: 'none' }}>{quantity}</Typography>
           <Box component="button" type="button" onClick={() => setQuantity((q) => q + 1)}
-            sx={{ width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', bgcolor: 'transparent', cursor: 'pointer', '&:hover': { bgcolor: '#f1f5f9' } }}>
+            sx={{
+              width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              border: 'none', bgcolor: 'transparent', cursor: 'pointer', color: '#475569',
+              transition: 'all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)',
+              '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' },
+              '&:active': { transform: 'scale(0.88)' },
+            }}>
             <AddIcon sx={{ fontSize: 16 }} />
           </Box>
         </Box>
-        <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#0f172a', ml: 'auto' }}>
+        <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#0f172a', ml: 'auto', transition: 'color 0.2s ease' }}>
           ${totalPrice.toFixed(2)}
         </Typography>
       </Box>
@@ -141,12 +153,26 @@ export default function StepReview({
       {submitError && <Alert severity="error" sx={{ mb: 2 }}>{submitError}</Alert>}
 
       <Button
+        className="btn-shine-effect"
         fullWidth
         variant="contained"
         size="large"
         disabled={isSubmitting}
         onClick={() => onAddToCart(quantity)}
-        sx={{ py: 1.5, fontSize: 15, fontWeight: 700 }}
+        sx={{
+          py: 1.6,
+          fontSize: 15,
+          fontWeight: 700,
+          borderRadius: '12px',
+          bgcolor: '#0f172a',
+          transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+          boxShadow: '0 4px 14px rgba(15, 23, 42, 0.18)',
+          '&:hover:not(:disabled)': {
+            bgcolor: '#1e293b',
+            transform: 'translateY(-2px)',
+            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.28)',
+          },
+        }}
       >
         {isSubmitting ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Add to Cart'}
       </Button>

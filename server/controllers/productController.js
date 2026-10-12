@@ -50,14 +50,15 @@ const createProduct = async (req, res) => {
 const getProducts = async (req, res) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;
+    const p = Number(page);
+    const l = Number(limit);
     const filter = {};
     if (status) filter.status = status;
 
-    const all = await Product.find(filter);
-    const total = all.length;
-    const paged = all.slice((page - 1) * limit, page * limit);
+    const total = await Product.countDocuments(filter);
+    const paged = await Product.find(filter).skip((p - 1) * l).limit(l);
 
-    res.json({ success: true, data: paged, total, page: Number(page), limit: Number(limit) });
+    res.json({ success: true, data: paged, total, page: p, limit: l });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -65,7 +66,7 @@ const getProducts = async (req, res) => {
 
 const getProduct = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findOne({ _id: req.params.id });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found.' });
 
     const productObj = product.toObject();
@@ -103,7 +104,7 @@ const getProduct = async (req, res) => {
 const updateProduct = async (req, res) => {
   if (handleValidationErrors(req, res)) return;
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findOne({ _id: req.params.id });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found.' });
 
     const { name, description, sku, basePrice, images, status, customizationFields } = req.body;
@@ -136,7 +137,7 @@ const updateProduct = async (req, res) => {
 
 const deleteProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndDelete(req.params.id);
+    const product = await Product.findOneAndDelete({ _id: req.params.id });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found.' });
     res.json({ success: true, message: 'Product deleted.' });
   } catch (err) {
@@ -146,7 +147,7 @@ const deleteProduct = async (req, res) => {
 
 const calculatePrice = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findOne({ _id: req.params.id });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found.' });
     if (product.status !== 'active') {
       return res.status(400).json({ success: false, message: 'Product is not available.' });
@@ -191,7 +192,7 @@ const calculatePrice = async (req, res) => {
 
 const resolveConfiguration = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findOne({ _id: req.params.id });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found.' });
 
     const { selections = {} } = req.body;
@@ -231,7 +232,7 @@ const resolveConfiguration = async (req, res) => {
 
 const calculateStepsPriceHandler = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findOne({ _id: req.params.id });
     if (!product) return res.status(404).json({ success: false, message: 'Product not found.' });
     if (product.status !== 'active') return res.status(400).json({ success: false, message: 'Product is not available.' });
 

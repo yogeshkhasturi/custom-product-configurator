@@ -51,7 +51,9 @@ function DimInput({ dim, value, onChange, error }) {
             justifyContent: 'center', border: 'none', bgcolor: 'transparent',
             cursor: (!isNaN(num) && num <= min) ? 'not-allowed' : 'pointer',
             opacity: (!isNaN(num) && num <= min) ? 0.3 : 1, color: '#475569', borderRadius: '6px',
-            '&:hover:not(:disabled)': { bgcolor: '#f1f5f9' },
+            transition: 'all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)',
+            '&:hover:not(:disabled)': { bgcolor: '#f1f5f9', color: '#0f172a' },
+            '&:active:not(:disabled)': { transform: 'scale(0.88)' },
           }}
         >
           <RemoveIcon sx={{ fontSize: { xs: 16, sm: 18 } }} />
@@ -66,7 +68,9 @@ function DimInput({ dim, value, onChange, error }) {
             justifyContent: 'center', border: 'none', bgcolor: 'transparent',
             cursor: (!isNaN(num) && num >= max) ? 'not-allowed' : 'pointer',
             opacity: (!isNaN(num) && num >= max) ? 0.3 : 1, color: '#475569', borderRadius: '6px',
-            '&:hover:not(:disabled)': { bgcolor: '#f1f5f9' },
+            transition: 'all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)',
+            '&:hover:not(:disabled)': { bgcolor: '#f1f5f9', color: '#0f172a' },
+            '&:active:not(:disabled)': { transform: 'scale(0.88)' },
           }}
         >
           <AddIcon sx={{ fontSize: { xs: 16, sm: 18 } }} />

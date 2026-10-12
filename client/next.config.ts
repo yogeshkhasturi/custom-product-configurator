@@ -1,16 +1,22 @@
 import type { NextConfig } from "next";
 
+const isProd = process.env.NODE_ENV === 'production';
+const localBackend = process.env.BACKEND_URL || 'http://localhost:5000';
+const prodBackend = 'https://phpstack-1344824-6717026.cloudwaysapps.com';
+
 const nextConfig: NextConfig = {
   async rewrites() {
-    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+    // In production, Express serves /uploads/* and /api/* directly — no rewrite needed.
+    // In dev, proxy both to the local Express server.
+    if (isProd) return [];
     return [
       {
-        source: "/api/:path*",
-        destination: `${backendUrl}/api/:path*`,
+        source: '/api/:path*',
+        destination: `${localBackend}/api/:path*`,
       },
       {
-        source: "/uploads/:path*",
-        destination: `${backendUrl}/uploads/:path*`,
+        source: '/uploads/:path*',
+        destination: `${localBackend}/uploads/:path*`,
       },
     ];
   },

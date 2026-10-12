@@ -315,7 +315,7 @@ export default function ProductForm({ initialData, mode = 'create' }) {
           ...f, order: i,
           min: f.min !== '' ? Number(f.min) : undefined,
           max: f.max !== '' ? Number(f.max) : undefined,
-          options: f.options.map((o) => ({ ...o, images: o.images || [], priceAdjustment: parseFloat(o.priceAdjustment) || 0, priceRanges: (o.priceRanges || []).map((r) => ({ min: Number(r.min), max: Number(r.max), amount: Number(r.amount) })) })),
+          options: f.options.map((o) => ({ ...o, value: (o.value !== undefined && o.value !== '') ? o.value : (o.label || ''), images: o.images || [], priceAdjustment: parseFloat(o.priceAdjustment) || 0, priceRanges: (o.priceRanges || []).map((r) => ({ min: Number(r.min), max: Number(r.max), amount: Number(r.amount) })) })),
           pricingConfig: { ...f.pricingConfig, perUnitPrice: parseFloat(f.pricingConfig?.perUnitPrice) || 0, priceRanges: (f.pricingConfig?.priceRanges || []).map((r) => ({ min: Number(r.min), max: Number(r.max), amount: Number(r.amount) })) },
           conditions: f.conditions.filter((c) => c.field && c.value !== ''),
         })),
@@ -329,6 +329,7 @@ export default function ProductForm({ initialData, mode = 'create' }) {
               ...cleanField,
               options: (cleanField.options || []).map((o) => ({
                 ...o,
+                value: (o.value !== undefined && o.value !== '') ? o.value : (o.label || ''),
                 images: o.images || [],
                 priceAdjustment: parseFloat(o.priceAdjustment) || 0,
                 priceRanges: (o.priceRanges || []).map((r) => ({ min: Number(r.min), max: Number(r.max), amount: Number(r.amount) })),
@@ -814,7 +815,7 @@ export default function ProductForm({ initialData, mode = 'create' }) {
                   <TableCell>SKU</TableCell>
                   <TableCell>Price Adj.</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Images</TableCell>
+                  <TableCell sx={{ minWidth: 155 }}>Images</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -832,10 +833,10 @@ export default function ProductForm({ initialData, mode = 'create' }) {
                       <TableCell>{cfg ? <Chip label={cfg.status} size="small" color={cfg.status === 'active' ? 'success' : 'default'} /> : <Typography variant="body2" color="text.secondary">—</Typography>}</TableCell>
                       <TableCell>
                         {cfg?.images?.length > 0 ? (
-                          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                          <Box sx={{ display: 'flex', gap: 0.75, alignItems: 'center', flexWrap: 'nowrap' }}>
                             {cfg.images.map((img, imgIdx) => (
                               <Box key={imgIdx} sx={{ position: 'relative', width: 40, height: 40, flexShrink: 0 }}>
-                                <img src={resolveImageUrl(img)} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, border: '1px solid #e0e0e0', display: 'block' }} />
+                                <img src={resolveImageUrl(img)} alt="" style={{ width: 40, height: 40, objectFit: 'contain', backgroundColor: '#f8fafc', borderRadius: 4, border: '1px solid #e0e0e0', display: 'block' }} />
                                 <Tooltip title="Remove image">
                                   <IconButton
                                     size="small"

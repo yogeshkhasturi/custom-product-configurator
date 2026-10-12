@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, useRef, Suspense } from 'react';
+import { useEffect, useState, useMemo, useRef, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -19,6 +19,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { useGetProductByIdQuery, useResolveConfigurationMutation } from '../../../lib/productsApi';
 import { isFieldVisible, resolveImageUrl, resolveImageUrls } from '../../../lib/pricingUtils';
 import StepsConfigurator from './steps/StepsConfigurator';
+import ProductImageMagnifier from './ProductImageMagnifier';
 
 // Numbered step badge (1, 2, 3)
 function StepBadge({ number }) {
@@ -102,7 +103,9 @@ function DimensionStepper({ label, options, value, onChange, error }) {
             opacity: effectiveIdx <= 0 ? 0.3 : 1,
             color: '#475569',
             borderRadius: '6px',
-            '&:hover:not(:disabled)': { bgcolor: '#f1f5f9' },
+            transition: 'all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)',
+            '&:hover:not(:disabled)': { bgcolor: '#f1f5f9', color: '#0f172a' },
+            '&:active:not(:disabled)': { transform: 'scale(0.88)' },
           }}
         >
           <RemoveIcon sx={{ fontSize: { xs: 16, sm: 18 } }} />
@@ -138,7 +141,9 @@ function DimensionStepper({ label, options, value, onChange, error }) {
             opacity: effectiveIdx >= options.length - 1 ? 0.3 : 1,
             color: '#475569',
             borderRadius: '6px',
-            '&:hover:not(:disabled)': { bgcolor: '#f1f5f9' },
+            transition: 'all 0.15s cubic-bezier(0.2, 0.8, 0.2, 1)',
+            '&:hover:not(:disabled)': { bgcolor: '#f1f5f9', color: '#0f172a' },
+            '&:active:not(:disabled)': { transform: 'scale(0.88)' },
           }}
         >
           <AddIcon sx={{ fontSize: { xs: 16, sm: 18 } }} />
@@ -175,34 +180,38 @@ function ProductDetail() {
 
   const isStepsMode =
     product?.configuratorDisplayMode === 'steps' ||
-    (!product?.configuratorDisplayMode && (
+    (product?.configuratorDisplayMode !== 'normal' && (
       (product?.stepsConfig || []).some((s) => s.enabled !== false) ||
       (product?.steps || []).length > 0
     ));
 
-  const [selections, setSelections] = useState({});
+  const [userSelections, setUserSelections] = useState({});
   const [fieldErrors, setFieldErrors] = useState({});
   const [pricePreview, setPricePreview] = useState(null);
   const [activeImage, setActiveImage] = useState(0);
   const [gallery, setGallery] = useState([]);
   const [configSku, setConfigSku] = useState(null);
   const [configResolving, setConfigResolving] = useState(false);
+  const [loadedImageUrl, setLoadedImageUrl] = useState('');
   const [stepsPriceResult, setStepsPriceResult] = useState(null);
   const resolveReqId = useRef(0);
 
-  // Initialize selections with first option of each field (Normal UI)
-  useEffect(() => {
-    if (!product || isStepsMode) return;
-    setGallery(resolveImageUrls(product.images || []));
-    setActiveImage(0);
+  const displayGallery = gallery.length > 0 ? gallery : resolveImageUrls(product?.images || []);
+  const activeImageUrl = displayGallery?.[activeImage];
+  const isImageLoading = Boolean(activeImageUrl && loadedImageUrl !== activeImageUrl);
+  const isGalleryLoading = configResolving || isImageLoading;
+
+  // Compute selections with defaults from fields overlaid with user selections (Normal UI)
+  const selections = useMemo(() => {
+    if (isStepsMode || !product) return userSelections;
     const initial = {};
     (product.customizationFields || []).forEach((f) => {
-      if (f.options?.length > 0 && !initial[f.name]) {
+      if (f.options?.length > 0) {
         initial[f.name] = f.options[0].value;
       }
     });
-    setSelections(initial);
-  }, [product?._id, isStepsMode]);
+    return { ...initial, ...userSelections };
+  }, [product, isStepsMode, userSelections]);
 
   // Resolve configuration when selections change (Normal UI)
   useEffect(() => {
@@ -236,7 +245,7 @@ function ProductDetail() {
   }, [selections, product]);
 
   const setSelection = (fieldName, value) => {
-    setSelections((prev) => ({ ...prev, [fieldName]: value }));
+    setUserSelections((prev) => ({ ...prev, [fieldName]: value }));
     setFieldErrors((prev) => ({ ...prev, [fieldName]: '' }));
   };
 
@@ -260,9 +269,9 @@ function ProductDetail() {
             {/* Gallery — reuse existing gallery logic */}
             <Box sx={{ gridColumn: { xs: '1', md: '1', lg: '1' }, gridRow: { xs: 'auto', md: '1 / span 2', lg: 'auto' }, position: { md: 'sticky' }, top: { md: 24 } }}>
               <Box sx={{ display: 'flex', flexDirection: { xs: 'column-reverse', sm: 'row' }, gap: { xs: 1.5, sm: 2 }, alignItems: 'stretch' }}>
-                {gallery?.length > 1 && (
+                {displayGallery?.length > 1 && (
                   <Box sx={{ display: 'flex', flexDirection: { xs: 'row', sm: 'column' }, justifyContent: { xs: 'center', sm: 'flex-start' }, flexWrap: { xs: 'wrap', sm: 'nowrap' }, gap: 1.25 }}>
-                    {gallery.map((img, i) => (
+                    {displayGallery.map((img, i) => (
                       <Box key={i} onClick={() => setActiveImage(i)}
                         sx={{ width: { xs: 60, sm: 64, md: 70 }, height: { xs: 60, sm: 64, md: 70 }, flexShrink: 0, borderRadius: '8px', overflow: 'hidden', cursor: 'pointer', bgcolor: '#fff', border: '2px solid', borderColor: i === activeImage ? '#0284c7' : '#e2e8f0', p: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
                         <img src={img} alt={`Thumbnail ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
@@ -270,12 +279,14 @@ function ProductDetail() {
                     ))}
                   </Box>
                 )}
-                <Box sx={{ flex: 1, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: { xs: 2, sm: 2.5, md: 3 }, height: { xs: 320, sm: 380, md: 440, lg: 480 }, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                  {gallery?.length > 0 ? (
-                    <img key={gallery[activeImage]} src={gallery[activeImage]} alt={product.name} style={{ maxWidth: '92%', maxHeight: '92%', objectFit: 'contain', display: 'block' }} />
-                  ) : (
-                    <Typography color="text.secondary">No Image Available</Typography>
-                  )}
+                <Box sx={{ flex: 1, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: { xs: 2, sm: 2.5, md: 3 }, height: { xs: 320, sm: 380, md: 440, lg: 480 }, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+                  <ProductImageMagnifier
+                    src={displayGallery?.[activeImage]}
+                    alt={product.name}
+                    onLoad={() => setLoadedImageUrl(activeImageUrl)}
+                    onError={() => setLoadedImageUrl(activeImageUrl)}
+                    isLoading={isGalleryLoading}
+                  />
                 </Box>
               </Box>
             </Box>
@@ -299,6 +310,7 @@ function ProductDetail() {
                 setGallery={setGallery}
                 setActiveImage={setActiveImage}
                 onPriceResult={setStepsPriceResult}
+                onConfigResolving={setConfigResolving}
               />
             </Box>
 
@@ -306,9 +318,24 @@ function ProductDetail() {
             <Box sx={{ gridColumn: { xs: '1', md: '2', lg: '3' }, position: { lg: 'sticky' }, top: { lg: 24 } }}>
               <Box sx={{ bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: { xs: 2, sm: 2.5 } }}>
                 <Typography sx={{ fontSize: 15, fontWeight: 700, mb: 1.5 }}>Your Custom Lampshade</Typography>
-                {gallery?.length > 0 && (
-                  <Box sx={{ width: '100%', height: { xs: 140, sm: 160 }, borderRadius: '8px', border: '1px solid #e2e8f0', bgcolor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', mb: 2, p: 1 }}>
-                    <img src={gallery[activeImage] || gallery[0]} alt={product.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                {displayGallery?.length > 0 && (
+                  <Box sx={{ width: '100%', height: { xs: 140, sm: 160 }, borderRadius: '8px', border: '1px solid #e2e8f0', bgcolor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', mb: 2, p: 1, position: 'relative' }}>
+                    <img
+                      src={displayGallery[activeImage] || displayGallery[0]}
+                      alt={product.name}
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        objectFit: 'contain',
+                        opacity: isGalleryLoading ? 0.35 : 1,
+                        transition: 'opacity 0.2s ease',
+                      }}
+                    />
+                    {isGalleryLoading && (
+                      <Box sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(255,255,255,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2 }}>
+                        <CircularProgress size={22} sx={{ color: '#0284c7' }} />
+                      </Box>
+                    )}
                   </Box>
                 )}
                 <Typography sx={{ fontSize: { xs: 28, sm: 34 }, fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
@@ -424,7 +451,7 @@ function ProductDetail() {
               }}
             >
               {/* Thumbnails: horizontal row below on mobile, vertical column on tablet/desktop */}
-              {gallery?.length > 1 && (
+              {displayGallery?.length > 1 && (
                 <Box
                   sx={{
                     display: 'flex',
@@ -434,7 +461,7 @@ function ProductDetail() {
                     gap: 1.25,
                   }}
                 >
-                  {gallery.map((img, i) => (
+                  {displayGallery.map((img, i) => (
                     <Box
                       key={i}
                       onClick={() => setActiveImage(i)}
@@ -485,49 +512,13 @@ function ProductDetail() {
                   overflow: 'hidden',
                 }}
               >
-                {gallery?.length > 0 ? (
-                  <Box
-                    sx={{
-                      width: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <img
-                      key={gallery[activeImage]}
-                      src={gallery[activeImage]}
-                      alt={product.name}
-                      style={{
-                        maxWidth: '92%',
-                        maxHeight: '92%',
-                        objectFit: 'contain',
-                        display: 'block',
-                      }}
-                    />
-                  </Box>
-                ) : (
-                  <Typography color="text.secondary">No Image Available</Typography>
-                )}
-
-                {/* Resolving overlay spinner */}
-                {configResolving && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      inset: 0,
-                      bgcolor: 'rgba(255,255,255,0.7)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      backdropFilter: 'blur(1px)',
-                      zIndex: 2,
-                    }}
-                  >
-                    <CircularProgress size={28} sx={{ color: '#0f172a' }} />
-                  </Box>
-                )}
+                <ProductImageMagnifier
+                  src={displayGallery?.[activeImage]}
+                  alt={product.name}
+                  onLoad={() => setLoadedImageUrl(activeImageUrl)}
+                  onError={() => setLoadedImageUrl(activeImageUrl)}
+                  isLoading={isGalleryLoading}
+                />
               </Box>
             </Box>
           </Box>
@@ -757,7 +748,7 @@ function ProductDetail() {
                         </Box>
 
                         <Typography sx={{ fontSize: { xs: 12, sm: 13 }, fontWeight: 700, color: '#0f172a', lineHeight: 1.2 }}>
-                          {opt.label}
+                          {opt.label || opt.value}
                         </Typography>
 
                         {opt.priceAdjustment > 0 && (
@@ -983,6 +974,7 @@ function ProductDetail() {
                       fontWeight: 800,
                       color: '#0f172a',
                       lineHeight: 1.1,
+                      transition: 'color 0.25s ease, transform 0.25s ease',
                     }}
                   >
                     ${finalPrice.toFixed(2)}
@@ -992,7 +984,16 @@ function ProductDetail() {
 
               {/* Stock status */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 2.5 }}>
-                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#16a34a' }} />
+                <Box
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: '#16a34a',
+                    boxShadow: '0 0 0 0 rgba(22, 163, 74, 0.4)',
+                    animation: 'pulseGlow 2.5s infinite',
+                  }}
+                />
                 <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#16a34a' }}>
                   In Stock
                 </Typography>

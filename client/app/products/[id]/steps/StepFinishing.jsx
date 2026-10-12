@@ -42,13 +42,19 @@ function FieldRenderer({ field, value, onChange, error }) {
                   bgcolor: selected ? '#f0f9ff' : '#fff',
                   borderRadius: '8px', px: 1.5, py: 1, cursor: 'pointer',
                   display: 'flex', alignItems: 'center', gap: 1,
-                  transition: 'all 0.15s',
-                  '&:hover': { borderColor: '#94a3b8' },
+                  boxShadow: selected ? '0 2px 8px rgba(2, 132, 199, 0.15)' : 'none',
+                  transition: 'all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)',
+                  '&:hover': {
+                    borderColor: selected ? '#0284c7' : '#94a3b8',
+                    transform: 'translateY(-1px)',
+                    boxShadow: selected ? '0 4px 12px rgba(2, 132, 199, 0.2)' : '0 2px 6px rgba(0,0,0,0.05)',
+                  },
+                  '&:active': { transform: 'scale(0.97)' },
                 }}
               >
-                {selected && <CheckIcon sx={{ fontSize: 14, color: '#0284c7' }} />}
+                {selected && <CheckIcon className="anim-badge-pop" sx={{ fontSize: 14, color: '#0284c7' }} />}
                 <Typography sx={{ fontSize: 13, fontWeight: selected ? 700 : 400, color: '#0f172a' }}>
-                  {opt.label}{opt.priceAdjustment > 0 ? ` (+$${Number(opt.priceAdjustment).toFixed(2)})` : ''}
+                  {opt.label || opt.value}{opt.priceAdjustment > 0 ? ` (+$${Number(opt.priceAdjustment).toFixed(2)})` : ''}
                 </Typography>
               </Box>
             );

@@ -24,10 +24,13 @@ function applyPricingType(pricingType, priceAdjustment, priceRanges, basePrice, 
 export function resolveImageUrl(url) {
   if (!url || typeof url !== 'string') return url;
   // Already relative — pass through
-  if (url.startsWith('/uploads/')) return url;
+  if (url.startsWith('/uploads/') || url.startsWith('/images/')) return url;
   // Extract /uploads/<filename> from ANY absolute URL (localhost, Cloudways, any host)
-  const match = url.match(/\/uploads\/(.+)$/);
-  if (match) return `/uploads/${match[1]}`;
+  const matchUploads = url.match(/\/uploads\/(.+)$/);
+  if (matchUploads) return `/uploads/${matchUploads[1]}`;
+  // Extract /images/<path> from ANY absolute URL
+  const matchImages = url.match(/\/images\/(.+)$/);
+  if (matchImages) return `/images/${matchImages[1]}`;
   return url;
 }
 

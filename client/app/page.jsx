@@ -32,7 +32,8 @@ export default function Home() {
             content: '""',
             position: 'absolute',
             inset: 0,
-            background: 'radial-gradient(ellipse at 50% 60%, rgba(255,255,255,0.04) 0%, transparent 70%)',
+            background: 'radial-gradient(ellipse at 50% 60%, rgba(255,255,255,0.06) 0%, transparent 70%)',
+            animation: 'ambientPulse 7s ease-in-out infinite',
             pointerEvents: 'none',
           },
           '&::after': {
@@ -40,7 +41,7 @@ export default function Home() {
             position: 'absolute',
             bottom: 0, left: 0, right: 0,
             height: '1px',
-            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
+            background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent)',
           },
         }}
       >
@@ -48,9 +49,8 @@ export default function Home() {
           <Typography
             variant="overline"
             sx={{
-              color: 'rgba(255,255,255,0.45)', letterSpacing: '0.3em', fontWeight: 700, mb: 3, display: 'block',
+              color: 'rgba(255,255,255,0.5)', letterSpacing: '0.3em', fontWeight: 700, mb: 3, display: 'block',
               animation: 'fadeInDown 0.6s ease both',
-              '@keyframes fadeInDown': { from: { opacity: 0, transform: 'translateY(-12px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
             }}
           >
             Bespoke Lampshades
@@ -61,7 +61,6 @@ export default function Home() {
             sx={{
               mb: 3, fontSize: { xs: '2.4rem', md: '3.6rem' }, lineHeight: 1.1,
               animation: 'fadeInUp 0.7s ease 0.1s both',
-              '@keyframes fadeInUp': { from: { opacity: 0, transform: 'translateY(16px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
             }}
           >
             Light Your Space,<br />Your Way
@@ -69,7 +68,7 @@ export default function Home() {
           <Typography
             variant="h6"
             sx={{
-              color: 'rgba(255,255,255,0.55)', mb: 6, fontWeight: 400, maxWidth: 520, mx: 'auto',
+              color: 'rgba(255,255,255,0.6)', mb: 6, fontWeight: 400, maxWidth: 520, mx: 'auto',
               animation: 'fadeInUp 0.7s ease 0.2s both',
             }}
           >
@@ -77,6 +76,7 @@ export default function Home() {
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap', animation: 'fadeInUp 0.7s ease 0.3s both' }}>
             <Button
+              className="btn-shine-effect"
               variant="contained"
               color="secondary"
               size="large"
@@ -85,8 +85,9 @@ export default function Home() {
               sx={{
                 px: 5, py: 1.6, fontSize: 14, letterSpacing: '0.12em',
                 bgcolor: '#fff', color: '#000',
-                transition: 'all 0.25s ease',
-                '&:hover': { bgcolor: '#e8e8e8', transform: 'translateY(-2px)', boxShadow: '0 8px 24px rgba(255,255,255,0.15)' },
+                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                boxShadow: '0 4px 14px rgba(255,255,255,0.1)',
+                '&:hover': { bgcolor: '#f4f4f5', transform: 'translateY(-3px)', boxShadow: '0 10px 28px rgba(255,255,255,0.22)' },
               }}
             >
               Browse Products
@@ -98,9 +99,10 @@ export default function Home() {
               href="/products"
               sx={{
                 px: 5, py: 1.6, fontSize: 14, letterSpacing: '0.12em',
-                borderColor: 'rgba(255,255,255,0.3)', color: '#fff',
-                transition: 'all 0.25s ease',
-                '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.08)', transform: 'translateY(-2px)' },
+                borderColor: 'rgba(255,255,255,0.35)', color: '#fff',
+                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                backdropFilter: 'blur(4px)',
+                '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.12)', transform: 'translateY(-3px)' },
               }}
             >
               Learn More
@@ -112,7 +114,7 @@ export default function Home() {
       {/* Features */}
       <Box sx={{ maxWidth: 1100, mx: 'auto', px: { xs: 2, md: 4 }, py: { xs: 8, md: 12 } }}>
         <Typography variant="h4" textAlign="center" mb={1} letterSpacing="-0.01em">Why Fenchel Shades?</Typography>
-        <Box sx={{ width: 40, height: 2, bgcolor: '#000', mx: 'auto', mb: 2 }} />
+        <Box sx={{ width: 40, height: 2, bgcolor: '#000', mx: 'auto', mb: 2, borderRadius: 1 }} />
         <Typography color="text.secondary" textAlign="center" mb={7} maxWidth={480} mx="auto">
           We combine traditional craftsmanship with modern customization tools.
         </Typography>
@@ -121,20 +123,19 @@ export default function Home() {
             <Grid item xs={12} md={4} key={f.title}>
               <Paper
                 elevation={0}
+                className="card-luxury-hover"
                 sx={{
                   p: 4, height: '100%', textAlign: 'center',
-                  border: '1px solid #e0e0e0',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '12px',
                   cursor: 'default',
                   '&:hover': {
-                    border: '1px solid #000',
-                    transform: 'translateY(-6px)',
-                    boxShadow: '0 16px 40px rgba(0,0,0,0.1)',
-                    '& .feature-icon': { transform: 'scale(1.2) rotate(-5deg)', color: '#000' },
+                    borderColor: '#0f172a',
+                    '& .feature-icon': { transform: 'scale(1.22) rotate(-6deg)', color: '#0f172a' },
                   },
                 }}
               >
-                <Box className="feature-icon" sx={{ mb: 2.5, color: '#888', transition: 'all 0.3s ease' }}>{f.icon}</Box>
+                <Box className="feature-icon" sx={{ mb: 2.5, color: '#64748b', transition: 'all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>{f.icon}</Box>
                 <Typography variant="h6" mb={1} fontWeight={700} letterSpacing="0.02em">{f.title}</Typography>
                 <Typography color="text.secondary" variant="body2" lineHeight={1.7}>{f.body}</Typography>
               </Paper>
@@ -143,13 +144,14 @@ export default function Home() {
         </Grid>
 
         {/* Divider line */}
-        <Box sx={{ width: '100%', height: '1px', bgcolor: '#e0e0e0', my: 10 }} />
+        <Box sx={{ width: '100%', height: '1px', bgcolor: '#e2e8f0', my: 10 }} />
 
         {/* CTA */}
         <Box sx={{ textAlign: 'center' }}>
           <Typography variant="h4" mb={1} letterSpacing="-0.01em">Ready to design your shade?</Typography>
-          <Box sx={{ width: 40, height: 2, bgcolor: '#000', mx: 'auto', mb: 4 }} />
+          <Box sx={{ width: 40, height: 2, bgcolor: '#000', mx: 'auto', mb: 4, borderRadius: 1 }} />
           <Button
+            className="btn-shine-effect"
             variant="contained"
             color="primary"
             size="large"
@@ -157,8 +159,9 @@ export default function Home() {
             href="/products"
             sx={{
               px: 6, py: 1.6, fontSize: 14, letterSpacing: '0.12em',
-              transition: 'all 0.25s ease',
-              '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 8px 24px rgba(0,0,0,0.2)' },
+              transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              boxShadow: '0 4px 14px rgba(0,0,0,0.15)',
+              '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 12px 28px rgba(0,0,0,0.25)' },
             }}
           >
             Start Customizing

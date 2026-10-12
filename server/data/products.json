@@ -9,7 +9,8 @@
     "sku": "CUSTOM-ROUND",
     "basePrice": 50,
     "images": [
-      "http://localhost:5000/uploads/1791438326749-2unnspu1qcz.webp"
+      "/uploads/1791793917506-natural-covering.webp",
+      "/uploads/1791793917448-washer-natural.webp"
     ],
     "status": "active",
     "customizationFields": [
@@ -144,7 +145,7 @@
             "pricingType": "percentage",
             "priceRanges": [],
             "images": [
-              "http://localhost:5000/uploads/1791439178839-edebcsggpo8.webp"
+              "/uploads/1791793917448-washer-natural.webp"
             ],
             "description": "",
             "sku": ""
@@ -231,9 +232,8 @@
         "priceAdjustment": 0,
         "status": "active",
         "images": [
-          "http://localhost:5000/uploads/1791440254585-721bqyi6l58.webp",
-          "http://localhost:5000/uploads/1791440912680-i5ze7d3mn5i.webp",
-          "http://localhost:5000/uploads/1791441004455-p5awiwrnj1.webp"
+          "/uploads/1791793917506-natural-covering.webp",
+          "/uploads/1791793917448-washer-natural.webp"
         ],
         "configurationKey": "2.5|10|60|washer|natural covering"
       },
@@ -307,9 +307,8 @@
         "priceAdjustment": 0,
         "status": "active",
         "images": [
-          "http://localhost:5000/uploads/1791441808767-xl7a0tp7ed.webp",
-          "http://localhost:5000/uploads/1791441808966-am8qbmirg6l.webp",
-          "http://localhost:5000/uploads/1791441821858-68yknfvte6m.webp"
+          "/uploads/1791793917506-natural-covering.webp",
+          "/uploads/1791793917448-washer-natural.webp"
         ],
         "configurationKey": "2.5|10|80|washer|natural covering"
       },

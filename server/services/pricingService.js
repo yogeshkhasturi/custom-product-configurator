@@ -205,8 +205,13 @@ function calculateStepsPrice(product, stepSelections = {}) {
         continue;
       }
 
-      if (['select', 'radio', 'swatch', 'color', 'image_cards'].includes(field.type)) {
-        const option = (field.options || []).find((o) => o.value === val);
+      if (['select', 'radio', 'swatch', 'color', 'image_cards', 'swatch_grid'].includes(field.type)) {
+        // Normalize both sides to string so number/string mismatches don't silently fail
+        const option = (field.options || []).find((o) =>
+          String(o.value) === String(val) ||
+          String(o.label) === String(val) ||
+          String(o.value).toLowerCase() === String(val).toLowerCase()
+        );
         if (option && option.priceAdjustment) {
           const amount = applyPricingType(option.pricingType || 'fixed', option.priceAdjustment, option.priceRanges || [], basePrice, val);
           if (amount !== 0) adjustments.push({ field: field.label || field.name, selection: option.label || val, amount });
@@ -217,7 +222,11 @@ function calculateStepsPrice(product, stepSelections = {}) {
       if (field.type === 'checkbox' || field.type === 'multi_select') {
         const checked = Array.isArray(val) ? val : [val];
         for (const v of checked) {
-          const option = (field.options || []).find((o) => o.value === v);
+          const option = (field.options || []).find((o) =>
+            String(o.value) === String(v) ||
+            String(o.label) === String(v) ||
+            String(o.value).toLowerCase() === String(v).toLowerCase()
+          );
           if (option && option.priceAdjustment) {
             const amount = applyPricingType(option.pricingType || 'fixed', option.priceAdjustment, option.priceRanges || [], basePrice, v);
             if (amount !== 0) adjustments.push({ field: field.label || field.name, selection: option.label || v, amount });
@@ -227,7 +236,11 @@ function calculateStepsPrice(product, stepSelections = {}) {
       }
 
       if (field.type === 'dropdown' || field.type === 'number') {
-        const option = (field.options || []).find((o) => o.value === val);
+        const option = (field.options || []).find((o) =>
+          String(o.value) === String(val) ||
+          String(o.label) === String(val) ||
+          String(o.value).toLowerCase() === String(val).toLowerCase()
+        );
         if (option && option.priceAdjustment) {
           const amount = applyPricingType(option.pricingType || 'fixed', option.priceAdjustment, option.priceRanges || [], basePrice, val);
           if (amount !== 0) adjustments.push({ field: field.label || field.name, selection: option.label || val, amount });
