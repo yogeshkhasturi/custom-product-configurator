@@ -163,7 +163,7 @@ export default function ProductImageMagnifier({
           >
             <CircularProgress size={36} thickness={4} sx={{ color: '#0284c7' }} />
             <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>
-              Updating preview...
+              Crafting in progress...
             </Typography>
           </Box>
         )}

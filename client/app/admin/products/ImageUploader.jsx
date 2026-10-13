@@ -27,8 +27,8 @@ async function removeFile(url) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ url }),
     });
-  } catch {
-    // ignore delete errors
+  } catch (err) {
+    console.error(err)
   }
 }
 
