@@ -6,8 +6,11 @@ const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
 export const metadata = {
-  title: 'Fenchel Shades',
-  description: 'Custom handcrafted lampshades',
+  title: {
+    default: 'Fenchel Shades | Custom Handcrafted Lampshades',
+    template: '%s | Fenchel Shades',
+  },
+  description: 'Custom handcrafted lampshades tailored to your exact style and dimensions.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,4 +1,5 @@
 'use client';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -31,6 +32,10 @@ export default function AdminProductsPage() {
   const { data, isLoading, isError } = useGetProductsQuery();
   const [deleteProduct] = useDeleteProductMutation();
   const products = data?.data || [];
+
+  useEffect(() => {
+    document.title = 'Products | Admin | Fenchel Shades';
+  }, []);
 
   const handleDelete = async (id, name) => {
     if (!confirm(`Delete "${name}"?`)) return;

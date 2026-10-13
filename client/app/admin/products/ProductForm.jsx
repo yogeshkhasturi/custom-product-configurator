@@ -40,6 +40,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import TablePagination from '@mui/material/TablePagination';
 import ViewColumnIcon from '@mui/icons-material/ViewColumn';
 import TuneIcon from '@mui/icons-material/Tune';
@@ -373,6 +374,51 @@ export default function ProductForm({ initialData, mode = 'create' }) {
 
   return (
     <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 1100, mx: 'auto', p: { xs: 2, md: 4 } }}>
+      {/* Page Header */}
+      <Box sx={{ mb: 4, pb: 2.5, borderBottom: '1px solid #e2e8f0' }}>
+        <Button
+          variant="text"
+          onClick={() => router.push('/admin/products')}
+          startIcon={<ArrowBackIcon sx={{ fontSize: 18 }} />}
+          sx={{ mb: 1.5, color: '#64748b', fontSize: 13, textTransform: 'none', px: 0, '&:hover': { color: '#0f172a', bgcolor: 'transparent' } }}
+        >
+          Back to Products
+        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+          <Box>
+            <Typography variant="overline" sx={{ color: '#0284c7', letterSpacing: '0.12em', fontWeight: 700, display: 'block' }}>
+              Admin Panel
+            </Typography>
+            <Typography variant="h4" sx={{ fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em', fontSize: { xs: 24, sm: 28, md: 32 } }}>
+              {mode === 'create' ? 'Create New Product' : `Edit Product: ${form.name || 'Custom Lampshade'}`}
+            </Typography>
+            <Typography sx={{ color: '#64748b', fontSize: 14, mt: 0.5 }}>
+              {mode === 'create'
+                ? 'Configure product details, images, customization fields, and variations.'
+                : `Update configuration fields, steps, and pricing rules (SKU: ${form.sku || '—'}).`}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Button
+              variant="outlined"
+              onClick={() => router.push('/admin/products')}
+              disabled={saving}
+              sx={{ textTransform: 'none', borderColor: '#cbd5e1', color: '#475569' }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={saving}
+              sx={{ textTransform: 'none', px: 3, bgcolor: '#0284c7', '&:hover': { bgcolor: '#0369a1' } }}
+            >
+              {saving ? 'Saving...' : mode === 'create' ? 'Create Product' : 'Save Changes'}
+            </Button>
+          </Box>
+        </Box>
+      </Box>
+
       {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       {/* Basic Info */}

@@ -1,5 +1,5 @@
 'use client';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -18,6 +18,10 @@ function ProductsList() {
   const router = useRouter();
   const { data, isLoading, isError } = useGetProductsQuery({ status: 'active' });
   const products = data?.data || [];
+
+  useEffect(() => {
+    document.title = 'Custom Lampshades Collection | Fenchel Shades';
+  }, []);
 
   return (
     <Box>

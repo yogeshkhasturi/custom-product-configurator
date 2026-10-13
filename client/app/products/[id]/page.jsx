@@ -201,6 +201,15 @@ function ProductDetail() {
   const isImageLoading = Boolean(activeImageUrl && loadedImageUrl !== activeImageUrl);
   const isGalleryLoading = configResolving || isImageLoading;
 
+  // Set page title dynamically
+  useEffect(() => {
+    if (product?.name) {
+      document.title = `${product.name} | Fenchel Shades`;
+    } else {
+      document.title = 'Custom Lampshade | Fenchel Shades';
+    }
+  }, [product?.name]);
+
   // Compute selections with defaults from fields overlaid with user selections (Normal UI)
   const selections = useMemo(() => {
     if (isStepsMode || !product) return userSelections;

@@ -1,4 +1,5 @@
 'use client';
+import { useEffect } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -16,6 +17,10 @@ const features = [
 ];
 
 export default function Home() {
+  useEffect(() => {
+    document.title = 'Fenchel Shades | Custom Handcrafted Lampshades';
+  }, []);
+
   return (
     <Box>
       {/* Hero */}
