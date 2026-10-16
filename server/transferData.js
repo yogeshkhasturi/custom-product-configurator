@@ -1,8 +1,9 @@
+require('dotenv').config();
 const mongoose = require('mongoose');
 const fs = require('fs');
 const path = require('path');
 
-const uri = 'mongodb+srv://tusharwebiators_db_user:RN1DJRSwBkFN2spB@fenchelshades.x1riprb.mongodb.net/fenchel-shades?retryWrites=true&w=majority';
+const uri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/fenchel-shades';
 
 const productSchema = new mongoose.Schema(
   {

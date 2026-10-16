@@ -1,6 +1,7 @@
 'use strict';
+require('dotenv').config();
 const { MongoClient } = require('mongodb');
-const URI = 'mongodb+srv://tusharwebiators_db_user:RN1DJRSwBkFN2spB@fenchelshades.x1riprb.mongodb.net/fenchel-shades?retryWrites=true&w=majority';
+const URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/fenchel-shades';
 
 const ATTACHMENT_IMAGES = {
   'Washer|BURLAP - NATURAL':   '/uploads/1791793917448-washer-natural.webp',

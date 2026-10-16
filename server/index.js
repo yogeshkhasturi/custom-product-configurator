@@ -150,9 +150,9 @@ const MONGO_URI = process.env.MONGO_URI;
 async function startServer() {
   try {
     await mongoose.connect(MONGO_URI);
-    console.log("Connected to MongoDB Atlas successfully.");
+    console.log(`Connected to MongoDB successfully: ${mongoose.connection.host}:${mongoose.connection.port}/${mongoose.connection.name}`);
   } catch (err) {
-    console.error("MongoDB Atlas connection error:", err.message);
+    console.error("MongoDB connection error:", err.message);
   }
 
   if (isProduction && nextApp) {

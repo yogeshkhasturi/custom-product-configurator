@@ -1,7 +1,8 @@
 'use strict';
+require('dotenv').config();
 const mongoose = require('mongoose');
 
-const URI = 'mongodb+srv://tusharwebiators_db_user:RN1DJRSwBkFN2spB@fenchelshades.x1riprb.mongodb.net/fenchel-shades?retryWrites=true&w=majority';
+const URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/fenchel-shades';
 
 // Flow: 1 - Dimension, 2 - Attachment, 3 - Covering
 const ATTACHMENT_IMAGES = {
