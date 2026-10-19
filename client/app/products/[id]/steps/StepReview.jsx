@@ -9,6 +9,8 @@ import Alert from '@mui/material/Alert';
 import EditIcon from '@mui/icons-material/Edit';
 import RemoveIcon from '@mui/icons-material/Remove';
 import AddIcon from '@mui/icons-material/Add';
+import FolderSpecialOutlinedIcon from '@mui/icons-material/FolderSpecialOutlined';
+import AddToProjectDialog from './AddToProjectDialog';
 
 export default function StepReview({
   product,
@@ -23,6 +25,7 @@ export default function StepReview({
   submitError,
 }) {
   const [quantity, setQuantity] = useState(1);
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const finalPrice = priceResult?.finalPrice ?? product.basePrice;
   const totalPrice = Math.round(finalPrice * quantity * 100) / 100;
 
@@ -152,30 +155,69 @@ export default function StepReview({
 
       {submitError && <Alert severity="error" sx={{ mb: 2 }}>{submitError}</Alert>}
 
-      <Button
-        className="btn-shine-effect"
-        fullWidth
-        variant="contained"
-        size="large"
-        disabled={isSubmitting}
-        onClick={() => onAddToCart(quantity)}
-        sx={{
-          py: 1.6,
-          fontSize: 15,
-          fontWeight: 700,
-          borderRadius: '12px',
-          bgcolor: '#0f172a',
-          transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-          boxShadow: '0 4px 14px rgba(15, 23, 42, 0.18)',
-          '&:hover:not(:disabled)': {
-            bgcolor: '#1e293b',
-            transform: 'translateY(-2px)',
-            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.28)',
-          },
-        }}
-      >
-        {isSubmitting ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Add to Cart'}
-      </Button>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <Button
+          className="btn-shine-effect"
+          fullWidth
+          variant="contained"
+          size="large"
+          disabled={isSubmitting}
+          onClick={() => onAddToCart(quantity)}
+          sx={{
+            py: 1.6,
+            fontSize: 15,
+            fontWeight: 700,
+            borderRadius: '12px',
+            bgcolor: '#0f172a',
+            transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+            boxShadow: '0 4px 14px rgba(15, 23, 42, 0.18)',
+            '&:hover:not(:disabled)': {
+              bgcolor: '#1e293b',
+              transform: 'translateY(-2px)',
+              boxShadow: '0 8px 24px rgba(15, 23, 42, 0.28)',
+            },
+          }}
+        >
+          {isSubmitting ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Add to Cart'}
+        </Button>
+
+        <Button
+          fullWidth
+          variant="outlined"
+          size="large"
+          startIcon={<FolderSpecialOutlinedIcon />}
+          onClick={() => setProjectDialogOpen(true)}
+          sx={{
+            py: 1.4,
+            fontSize: 14,
+            fontWeight: 700,
+            borderRadius: '12px',
+            borderColor: '#cbd5e1',
+            color: '#0f172a',
+            bgcolor: '#fff',
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              borderColor: '#0284c7',
+              color: '#0284c7',
+              bgcolor: 'rgba(2, 132, 199, 0.04)',
+              transform: 'translateY(-1px)',
+            },
+          }}
+        >
+          Add to Project
+        </Button>
+      </Box>
+
+      <AddToProjectDialog
+        open={projectDialogOpen}
+        onClose={() => setProjectDialogOpen(false)}
+        product={product}
+        stepSelections={stepSelections}
+        summaryRows={summaryRows}
+        unitPrice={finalPrice}
+        initialQuantity={quantity}
+        previewImage={gallery?.[activeImage] || gallery?.[0] || ''}
+      />
     </Box>
   );
 }

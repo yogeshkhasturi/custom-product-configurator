@@ -5,6 +5,7 @@ const path = require("path");
 const mongoose = require("mongoose");
 
 const productRoutes = require("./routes/productRoutes");
+const projectRoutes = require("./routes/projectRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const fixImagesRoute = require("./routes/fixImagesRoute");
 
@@ -71,6 +72,7 @@ app.use("/images", express.static(path.join(__dirname, "../client/public/images"
 // API Routes
 // --------------------------------------------------
 app.use("/api/products", productRoutes);
+app.use("/api/projects", projectRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/fix-images", fixImagesRoute);
 

@@ -15,6 +15,9 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import RemoveIcon from '@mui/icons-material/Remove';
 import AddIcon from '@mui/icons-material/Add';
+import Button from '@mui/material/Button';
+import FolderSpecialOutlinedIcon from '@mui/icons-material/FolderSpecialOutlined';
+import Link from 'next/link';
 
 import { useGetProductByIdQuery, useResolveConfigurationMutation } from '../../../lib/productsApi';
 import { isFieldVisible, resolveImageUrl, resolveImageUrls } from '../../../lib/pricingUtils';
@@ -310,7 +313,18 @@ function ProductDetail() {
                 {product.description && (
                   <Typography sx={{ fontSize: { xs: 12.5, sm: 13 }, color: '#64748b', mt: 0.5 }}>{product.description}</Typography>
                 )}
-                <Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: '#94a3b8', mt: 0.5 }}>SKU: {product.sku}</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 0.5 }}>
+                  <Typography sx={{ fontSize: 12, fontFamily: 'monospace', color: '#94a3b8' }}>SKU: {product.sku}</Typography>
+                  <Button
+                    component={Link}
+                    href="/projects"
+                    size="small"
+                    startIcon={<FolderSpecialOutlinedIcon sx={{ fontSize: 14 }} />}
+                    sx={{ color: '#0284c7', textTransform: 'none', fontSize: 12, p: 0, minWidth: 0, fontWeight: 600 }}
+                  >
+                    My Projects
+                  </Button>
+                </Box>
               </Box>
               <StepsConfigurator
                 product={product}

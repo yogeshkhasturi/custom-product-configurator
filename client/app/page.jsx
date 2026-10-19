@@ -101,7 +101,7 @@ export default function Home() {
               variant="outlined"
               size="large"
               component={Link}
-              href="/products"
+              href="/projects"
               sx={{
                 px: 5, py: 1.6, fontSize: 14, letterSpacing: '0.12em',
                 borderColor: 'rgba(255,255,255,0.35)', color: '#fff',
@@ -110,7 +110,7 @@ export default function Home() {
                 '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.12)', transform: 'translateY(-3px)' },
               }}
             >
-              Learn More
+              Browse Projects
             </Button>
           </Box>
         </Box>

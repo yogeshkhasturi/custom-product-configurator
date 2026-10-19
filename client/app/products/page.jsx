@@ -10,7 +10,10 @@ import CardActionArea from '@mui/material/CardActionArea';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
+import Button from '@mui/material/Button';
 import TuneIcon from '@mui/icons-material/Tune';
+import FolderSpecialOutlinedIcon from '@mui/icons-material/FolderSpecialOutlined';
+import Link from 'next/link';
 import { useGetProductsQuery } from '../../lib/productsApi';
 import { resolveImageUrl } from '../../lib/pricingUtils';
 
@@ -40,14 +43,33 @@ function ProductsList() {
           pointerEvents: 'none',
         },
       }}>
-        <Box sx={{ maxWidth: 1100, mx: 'auto', position: 'relative' }}>
-          <Typography variant="overline" sx={{ color: '#38bdf8', letterSpacing: '0.2em', fontWeight: 700, animation: 'fadeInDown 0.5s ease both' }}>
-            Our Collection
-          </Typography>
-          <Typography variant="h3" fontWeight={700} mt={0.5} sx={{ animation: 'fadeInUp 0.5s ease 0.1s both' }}>Custom Lampshades</Typography>
-          <Typography sx={{ color: 'rgba(255,255,255,0.7)', mt: 1, maxWidth: 480, animation: 'fadeInUp 0.5s ease 0.2s both' }}>
-            Each shade is made to order. Select a product to configure your perfect fit.
-          </Typography>
+        <Box sx={{ maxWidth: 1100, mx: 'auto', position: 'relative', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 2 }}>
+          <Box>
+            <Typography variant="overline" sx={{ color: '#38bdf8', letterSpacing: '0.2em', fontWeight: 700, animation: 'fadeInDown 0.5s ease both' }}>
+              Our Collection
+            </Typography>
+            <Typography variant="h3" fontWeight={700} mt={0.5} sx={{ animation: 'fadeInUp 0.5s ease 0.1s both' }}>Custom Lampshades</Typography>
+            <Typography sx={{ color: 'rgba(255,255,255,0.7)', mt: 1, maxWidth: 480, animation: 'fadeInUp 0.5s ease 0.2s both' }}>
+              Each shade is made to order. Select a product to configure your perfect fit.
+            </Typography>
+          </Box>
+          <Button
+            component={Link}
+            href="/projects"
+            variant="outlined"
+            startIcon={<FolderSpecialOutlinedIcon />}
+            sx={{
+              color: '#fff',
+              borderColor: 'rgba(255,255,255,0.3)',
+              borderRadius: '8px',
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: 13,
+              '&:hover': { borderColor: '#fff', bgcolor: 'rgba(255,255,255,0.08)' },
+            }}
+          >
+            My Projects
+          </Button>
         </Box>
       </Box>
 
