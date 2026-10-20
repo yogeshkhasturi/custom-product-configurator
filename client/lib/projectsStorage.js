@@ -96,6 +96,34 @@ export async function getProjects(params = {}) {
   return local;
 }
 
+export async function getProjectById(projectId) {
+  if (!projectId) return null;
+  try {
+    const res = await fetch(`${API_BASE}/${projectId}`, { cache: 'no-store' });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.data) {
+        const normalized = normalizeProject(json.data);
+        const local = getLocalProjects();
+        const idx = local.findIndex((p) => p.id === normalized.id);
+        if (idx >= 0) {
+          local[idx] = normalized;
+        } else {
+          local.unshift(normalized);
+        }
+        saveLocalProjects(local);
+        return normalized;
+      }
+    }
+  } catch (err) {
+    console.warn(`API getProjectById failed for project ${projectId}:`, err.message);
+  }
+
+  // Fallback to local cache
+  const local = getLocalProjects();
+  return local.find((p) => p.id === projectId) || null;
+}
+
 export async function createProject(name, options = {}) {
   const trimmed = (name || '').trim() || 'Untitled Project';
   const { isPublic = true, creatorName = 'Community Designer', description = '' } = options;

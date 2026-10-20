@@ -41,6 +41,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import TuneIcon from '@mui/icons-material/Tune';
 import ExploreOutlinedIcon from '@mui/icons-material/ExploreOutlined';
 import CloseIcon from '@mui/icons-material/Close';
+import ShareIcon from '@mui/icons-material/Share';
 
 import {
   getProjects,
@@ -73,9 +74,6 @@ export default function ProjectsPage() {
   const [newProjectCreator, setNewProjectCreator] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [newProjectIsPublic, setNewProjectIsPublic] = useState(true);
-
-  // Public View Modal state
-  const [viewingProject, setViewingProject] = useState(null);
 
   // Feedback notifications
   const [statusMessage, setStatusMessage] = useState({ text: '', severity: 'success' });
@@ -144,7 +142,7 @@ export default function ProjectsPage() {
           if (i.stepSelections && typeof i.stepSelections === 'object') {
             try {
               if (JSON.stringify(i.stepSelections).toLowerCase().includes(token)) return true;
-            } catch (e) {}
+            } catch (e) { }
           }
 
           // Check image filename
@@ -326,7 +324,7 @@ export default function ProjectsPage() {
   return (
     <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', color: '#0f172a', py: { xs: 3, md: 5 } }}>
       <Box sx={{ maxWidth: 1240, mx: 'auto', px: { xs: 2, sm: 3, md: 4 } }}>
-        
+
         {/* Top Header & Navigation */}
         <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -559,8 +557,8 @@ export default function ProjectsPage() {
                   {searchQuery && activeTag !== 'All'
                     ? `No projects matched "${searchQuery}" in the "${activeTag}" category.`
                     : searchQuery
-                    ? `No projects matched "${searchQuery}". Try searching for another room, shade style, or material.`
-                    : 'Be the first to share your bespoke shade project with the community!'}
+                      ? `No projects matched "${searchQuery}". Try searching for another room, shade style, or material.`
+                      : 'Be the first to share your bespoke shade project with the community!'}
                 </Typography>
                 <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1.5, flexWrap: 'wrap' }}>
                   {activeTag !== 'All' && (
@@ -653,6 +651,8 @@ export default function ProjectsPage() {
                         {/* Title & Creator */}
                         <Typography
                           variant="h6"
+                          component={Link}
+                          href={`/projects/${proj.id}`}
                           fontWeight={800}
                           sx={{
                             color: '#0f172a',
@@ -662,6 +662,10 @@ export default function ProjectsPage() {
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
+                            textDecoration: 'none',
+                            display: 'block',
+                            transition: 'color 0.15s ease',
+                            '&:hover': { color: '#0284c7' },
                           }}
                           title={proj.name}
                         >
@@ -799,15 +803,50 @@ export default function ProjectsPage() {
                         }}
                       >
                         <Button
+                          component={Link}
+                          href={`/projects/${proj.id}`}
                           size="small"
                           startIcon={<VisibilityOutlinedIcon />}
-                          onClick={() => setViewingProject(proj)}
-                          sx={{ textTransform: 'none', fontWeight: 700, fontSize: 13, color: '#0f172a' }}
+                          sx={{ textTransform: 'none', fontWeight: 700, fontSize: 10, color: '#0f172a', border: "1px solid black", padding: "4px", borderRadius: "8px" }}
                         >
                           View Details
                         </Button>
 
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Tooltip title="Share this project across apps">
+                            <IconButton
+                              size="small"
+                              onClick={async () => {
+                                if (typeof window !== 'undefined') {
+                                  const url = `${window.location.origin}/projects/${proj.id}`;
+                                  const shareData = {
+                                    title: `${proj.name} | Fenchel Shades`,
+                                    text: proj.description || `Check out "${proj.name}" bespoke lampshade project!`,
+                                    url,
+                                  };
+                                  if (typeof navigator !== 'undefined' && navigator.share) {
+                                    try {
+                                      await navigator.share(shareData);
+                                      return;
+                                    } catch (err) {
+                                      if (err.name === 'AbortError') return;
+                                    }
+                                  }
+                                  navigator.clipboard.writeText(url);
+                                  showToast(`Link to "${proj.name}" copied to clipboard!`);
+                                }
+                              }}
+                              sx={{
+                                border: '1px solid #e2e8f0',
+                                bgcolor: '#fff',
+                                color: '#475569',
+                                '&:hover': { bgcolor: '#f1f5f9', color: '#0284c7' },
+                              }}
+                            >
+                              <ShareIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+
                           <Tooltip title="Clone into your workspace to customize">
                             <IconButton
                               size="small"
@@ -941,53 +980,53 @@ export default function ProjectsPage() {
                       const totalItems = proj.items?.length || 0;
                       const totalCost = proj.items?.reduce((acc, i) => acc + (i.totalPrice || 0), 0) || 0;
 
-                    return (
-                      <Paper
-                        key={proj.id}
-                        elevation={0}
-                        onClick={() => setActiveProjectId(proj.id)}
-                        sx={{
-                          p: 2,
-                          borderRadius: '12px',
-                          cursor: 'pointer',
-                          border: '2px solid',
-                          borderColor: isSelected ? '#0284c7' : '#e2e8f0',
-                          bgcolor: isSelected ? '#f0f9ff' : '#fff',
-                          transition: 'all 0.15s ease',
-                          '&:hover': {
-                            borderColor: isSelected ? '#0284c7' : '#cbd5e1',
-                          },
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                          <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
-                            {proj.name}
-                          </Typography>
-                          {proj.status === 'ordered' && (
-                            <Chip label="Ordered" size="small" color="success" sx={{ height: 20, fontSize: 11 }} />
-                          )}
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                            {totalItems} {totalItems === 1 ? 'area' : 'areas'} • ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </Typography>
-                          <Chip
-                            icon={proj.isPublic ? <PublicIcon sx={{ fontSize: '12px !important' }} /> : <LockOutlinedIcon sx={{ fontSize: '12px !important' }} />}
-                            label={proj.isPublic ? 'Public' : 'Private'}
-                            size="small"
-                            sx={{
-                              height: 20,
-                              fontSize: 10,
-                              fontWeight: 700,
-                              bgcolor: proj.isPublic ? '#e0f2fe' : '#f1f5f9',
-                              color: proj.isPublic ? '#0369a1' : '#64748b',
-                            }}
-                          />
-                        </Box>
-                      </Paper>
-                    );
-                  })
-                )}
+                      return (
+                        <Paper
+                          key={proj.id}
+                          elevation={0}
+                          onClick={() => setActiveProjectId(proj.id)}
+                          sx={{
+                            p: 2,
+                            borderRadius: '12px',
+                            cursor: 'pointer',
+                            border: '2px solid',
+                            borderColor: isSelected ? '#0284c7' : '#e2e8f0',
+                            bgcolor: isSelected ? '#f0f9ff' : '#fff',
+                            transition: 'all 0.15s ease',
+                            '&:hover': {
+                              borderColor: isSelected ? '#0284c7' : '#cbd5e1',
+                            },
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                            <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
+                              {proj.name}
+                            </Typography>
+                            {proj.status === 'ordered' && (
+                              <Chip label="Ordered" size="small" color="success" sx={{ height: 20, fontSize: 11 }} />
+                            )}
+                          </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+                              {totalItems} {totalItems === 1 ? 'area' : 'areas'} • ${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </Typography>
+                            <Chip
+                              icon={proj.isPublic ? <PublicIcon sx={{ fontSize: '12px !important' }} /> : <LockOutlinedIcon sx={{ fontSize: '12px !important' }} />}
+                              label={proj.isPublic ? 'Public' : 'Private'}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: 10,
+                                fontWeight: 700,
+                                bgcolor: proj.isPublic ? '#e0f2fe' : '#f1f5f9',
+                                color: proj.isPublic ? '#0369a1' : '#64748b',
+                              }}
+                            />
+                          </Box>
+                        </Paper>
+                      );
+                    })
+                  )}
                 </Box>
 
                 {/* Right Area: Active Project Workspace */}
@@ -1037,6 +1076,17 @@ export default function ProjectsPage() {
 
                         {/* Top Buttons */}
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Button
+                            component={Link}
+                            href={`/projects/${activeProject.id}`}
+                            variant="outlined"
+                            size="small"
+                            startIcon={<VisibilityOutlinedIcon />}
+                            sx={{ borderRadius: '8px', textTransform: 'none', fontSize: 12, fontWeight: 700, color: '#0f172a', borderColor: '#cbd5e1' }}
+                          >
+                            View Full Page
+                          </Button>
+
                           <Button
                             variant="outlined"
                             color="error"
@@ -1261,178 +1311,7 @@ export default function ProjectsPage() {
         )}
       </Box>
 
-      {/* ============================================================== */}
-      {/* PUBLIC PROJECT DETAILS DIALOG (Modal Viewer)                   */}
-      {/* ============================================================== */}
-      <Dialog
-        open={Boolean(viewingProject)}
-        onClose={() => setViewingProject(null)}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '20px', p: 1 } }}
-      >
-        {viewingProject && (
-          <>
-            <DialogTitle sx={{ m: 0, p: 2.5, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                  <Chip
-                    icon={<PublicIcon sx={{ fontSize: '13px !important' }} />}
-                    label="Public Project"
-                    size="small"
-                    color="primary"
-                    sx={{ height: 22, fontSize: 11, fontWeight: 700 }}
-                  />
-                  <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                    Created by <strong>{viewingProject.creatorName || 'Community Designer'}</strong>
-                  </Typography>
-                </Box>
-                <Typography variant="h5" fontWeight={800} sx={{ color: '#0f172a' }}>
-                  {viewingProject.name}
-                </Typography>
-                {viewingProject.description && (
-                  <Typography variant="body2" sx={{ color: '#475569', mt: 0.5 }}>
-                    {viewingProject.description}
-                  </Typography>
-                )}
-              </Box>
-              <IconButton onClick={() => setViewingProject(null)} sx={{ color: '#94a3b8' }}>
-                <CloseIcon />
-              </IconButton>
-            </DialogTitle>
 
-            <DialogContent dividers sx={{ p: { xs: 2, md: 3 } }}>
-              <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', mb: 2, letterSpacing: '0.05em' }}>
-                Configured Areas & Shades ({viewingProject.items?.length || 0})
-              </Typography>
-
-              {(!viewingProject.items || viewingProject.items.length === 0) ? (
-                <Typography sx={{ color: '#64748b', fontStyle: 'italic', py: 4, textAlign: 'center' }}>
-                  No shades have been added to this project yet.
-                </Typography>
-              ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {viewingProject.items.map((item, idx) => (
-                    <Box
-                      key={item.id || idx}
-                      sx={{
-                        p: 2,
-                        borderRadius: '12px',
-                        border: '1px solid #e2e8f0',
-                        bgcolor: '#f8fafc',
-                        display: 'flex',
-                        flexDirection: { xs: 'column', sm: 'row' },
-                        alignItems: { sm: 'center' },
-                        justifyContent: 'space-between',
-                        gap: 2,
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        {item.image && (
-                          <Box
-                            sx={{
-                              width: 64,
-                              height: 64,
-                              borderRadius: '8px',
-                              bgcolor: '#fff',
-                              border: '1px solid #e2e8f0',
-                              p: 0.5,
-                              flexShrink: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <img
-                              src={item.image}
-                              alt={item.productName}
-                              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                            />
-                          </Box>
-                        )}
-                        <Box>
-                          <Typography sx={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>
-                            {item.areaName}
-                          </Typography>
-                          <Typography sx={{ fontSize: 13, color: '#475569' }}>
-                            {item.productName} {item.sku ? `(SKU: ${item.sku})` : ''}
-                          </Typography>
-
-                          {/* Detail specs */}
-                          {item.summaryRows && item.summaryRows.length > 0 && (
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75 }}>
-                              {item.summaryRows.map((s, sIdx) => (
-                                <Chip
-                                  key={sIdx}
-                                  label={`${s.label}: ${s.value}`}
-                                  size="small"
-                                  sx={{ fontSize: 11, height: 20, bgcolor: '#fff', border: '1px solid #e2e8f0' }}
-                                />
-                              ))}
-                            </Box>
-                          )}
-                        </Box>
-                      </Box>
-
-                      <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
-                        <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                          Qty: <strong>{item.quantity}</strong> × ${item.unitPrice.toFixed(2)}
-                        </Typography>
-                        <Typography sx={{ fontSize: 17, fontWeight: 800, color: '#0284c7' }}>
-                          ${item.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-              )}
-            </DialogContent>
-
-            <DialogActions sx={{ p: 2.5, px: 3, justifyContent: 'space-between', bgcolor: '#f8fafc' }}>
-              <Box>
-                <Typography sx={{ fontSize: 11, color: '#64748b', textTransform: 'uppercase', fontWeight: 600 }}>
-                  Estimated Total
-                </Typography>
-                <Typography sx={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}>
-                  ${(viewingProject.items?.reduce((acc, i) => acc + (i.totalPrice || 0), 0) || 0).toLocaleString('en-US', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}
-                </Typography>
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <Button
-                  variant="outlined"
-                  startIcon={<ContentCopyIcon />}
-                  disabled={isCloning}
-                  onClick={() => handleCloneProject(viewingProject)}
-                  sx={{ borderRadius: '8px', textTransform: 'none', fontWeight: 700 }}
-                >
-                  Clone to My Projects
-                </Button>
-
-                <Button
-                  variant="contained"
-                  disabled={isOrdering || (viewingProject.items?.length || 0) === 0}
-                  onClick={() => handleOrderProject(viewingProject)}
-                  startIcon={<ShoppingCartOutlinedIcon />}
-                  sx={{
-                    bgcolor: '#0f172a',
-                    borderRadius: '8px',
-                    textTransform: 'none',
-                    fontWeight: 700,
-                    px: 2.5,
-                    '&:hover': { bgcolor: '#1e293b' },
-                  }}
-                >
-                  Order Entire Project
-                </Button>
-              </Box>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
 
       {/* ============================================================== */}
       {/* CREATE NEW PROJECT DIALOG                                      */}
