@@ -7,6 +7,7 @@ const {
   updateProjectVisibility,
   cloneProject,
   addItemToProject,
+  updateProjectItem,
   removeItemFromProject,
   updateProjectStatus,
   deleteProject,
@@ -22,6 +23,7 @@ router.patch('/:id/visibility', updateProjectVisibility);
 router.post('/:id/clone', cloneProject);
 router.delete('/:id', deleteProject);
 router.post('/:id/items', addItemToProject);
+router.put('/:id/items/:itemId', updateProjectItem);
 router.delete('/:id/items/:itemId', removeItemFromProject);
 router.patch('/:id/status', updateProjectStatus);
 

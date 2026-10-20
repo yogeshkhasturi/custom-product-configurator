@@ -171,6 +171,90 @@ export async function createProject(name, options = {}) {
   return fallback;
 }
 
+export async function updateProject(projectId, updates = {}) {
+  const payload = {};
+  if (updates.name !== undefined) payload.name = updates.name.trim();
+  if (updates.isPublic !== undefined) payload.isPublic = Boolean(updates.isPublic);
+  if (updates.creatorName !== undefined) payload.creatorName = updates.creatorName.trim();
+  if (updates.description !== undefined) payload.description = updates.description.trim();
+
+  try {
+    const res = await fetch(`${API_BASE}/${projectId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.data) {
+        const updated = normalizeProject(json.data);
+        const local = getLocalProjects();
+        const idx = local.findIndex((p) => p.id === projectId);
+        if (idx >= 0) local[idx] = updated;
+        saveLocalProjects(local);
+        return updated;
+      }
+    }
+  } catch (err) {
+    console.warn('API updateProject failed, updating locally:', err.message);
+  }
+
+  const local = getLocalProjects();
+  const project = local.find((p) => p.id === projectId);
+  if (project) {
+    if (payload.name !== undefined && payload.name) project.name = payload.name;
+    if (payload.isPublic !== undefined) project.isPublic = payload.isPublic;
+    if (payload.creatorName !== undefined) project.creatorName = payload.creatorName;
+    if (payload.description !== undefined) project.description = payload.description;
+    project.updatedAt = new Date().toISOString();
+    saveLocalProjects(local);
+  }
+  return project;
+}
+
+export async function updateProjectItem(projectId, itemId, itemUpdates = {}) {
+  const payload = {};
+  if (itemUpdates.areaName !== undefined) payload.areaName = itemUpdates.areaName.trim();
+  if (itemUpdates.quantity !== undefined) payload.quantity = Math.max(1, Number(itemUpdates.quantity) || 1);
+
+  try {
+    const res = await fetch(`${API_BASE}/${projectId}/items/${itemId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.data) {
+        const updated = normalizeProject(json.data);
+        const local = getLocalProjects();
+        const idx = local.findIndex((p) => p.id === projectId);
+        if (idx >= 0) local[idx] = updated;
+        saveLocalProjects(local);
+        return updated;
+      }
+    }
+  } catch (err) {
+    console.warn('API updateProjectItem failed, updating locally:', err.message);
+  }
+
+  const local = getLocalProjects();
+  const project = local.find((p) => p.id === projectId);
+  if (project && project.items) {
+    const item = project.items.find((i) => i.id === itemId || i._id === itemId);
+    if (item) {
+      if (payload.areaName) item.areaName = payload.areaName;
+      if (payload.quantity) {
+        item.quantity = payload.quantity;
+        item.totalPrice = Math.round((item.unitPrice || 0) * payload.quantity * 100) / 100;
+      }
+      project.updatedAt = new Date().toISOString();
+      saveLocalProjects(local);
+    }
+  }
+  return project;
+}
+
 export async function toggleProjectVisibility(projectId, isPublic) {
   try {
     const res = await fetch(`${API_BASE}/${projectId}/visibility`, {

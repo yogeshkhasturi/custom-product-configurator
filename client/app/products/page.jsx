@@ -155,19 +155,6 @@ function ProductsList() {
                             ${p.basePrice.toFixed(2)}
                           </Typography>
                         </Box>
-                        <Chip
-                          icon={<TuneIcon sx={{ fontSize: '14px !important' }} />}
-                          label="Customize"
-                          size="small"
-                          sx={{
-                            bgcolor: '#0f172a',
-                            color: '#fff',
-                            fontWeight: 600,
-                            letterSpacing: '0.02em',
-                            transition: 'all 0.2s ease',
-                            '&:hover': { bgcolor: '#0284c7', transform: 'scale(1.04)' },
-                          }}
-                        />
                       </Box>
                     </CardContent>
                   </CardActionArea>

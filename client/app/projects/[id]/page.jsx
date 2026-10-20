@@ -19,6 +19,12 @@ import Tooltip from '@mui/material/Tooltip';
 import Breadcrumbs from '@mui/material/Breadcrumbs';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Switch from '@mui/material/Switch';
+import FormControlLabel from '@mui/material/FormControlLabel';
 
 // Icons
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -39,11 +45,14 @@ import WhatsAppIcon from '@mui/icons-material/WhatsApp';
 import EmailOutlinedIcon from '@mui/icons-material/EmailOutlined';
 import LinkedInIcon from '@mui/icons-material/LinkedIn';
 import XIcon from '@mui/icons-material/X';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import CloseIcon from '@mui/icons-material/Close';
 
 import {
   getProjectById,
   cloneProject,
   orderProjectToCart,
+  updateProject,
 } from '../../../lib/projectsStorage';
 
 export default function ProjectDetailsPage() {
@@ -54,6 +63,14 @@ export default function ProjectDetailsPage() {
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  // Edit dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editCreator, setEditCreator] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editIsPublic, setEditIsPublic] = useState(true);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Interaction feedback states
   const [copiedLink, setCopiedLink] = useState(false);
@@ -202,6 +219,45 @@ export default function ProjectDetailsPage() {
       showToast('Error ordering project.', 'error');
     } finally {
       setIsOrdering(false);
+    }
+  };
+
+  const handleOpenEdit = () => {
+    if (!project) return;
+    setEditName(project.name || '');
+    setEditCreator(project.creatorName || '');
+    setEditDesc(project.description || '');
+    setEditIsPublic(project.isPublic !== false);
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    const trimmed = editName.trim();
+    if (!trimmed) {
+      showToast('Project name cannot be empty.', 'error');
+      return;
+    }
+    setIsSavingEdit(true);
+    try {
+      const updated = await updateProject(project.id, {
+        name: trimmed,
+        creatorName: editCreator.trim(),
+        description: editDesc.trim(),
+        isPublic: editIsPublic,
+      });
+      if (updated) {
+        setProject((prev) => ({ ...prev, ...updated }));
+        document.title = `${updated.name} | Fenchel Shades Projects`;
+        showToast('Project details updated successfully!');
+        setEditDialogOpen(false);
+      } else {
+        showToast('Failed to update project.', 'error');
+      }
+    } catch (err) {
+      console.error('Error updating project:', err);
+      showToast('Error updating project.', 'error');
+    } finally {
+      setIsSavingEdit(false);
     }
   };
 
@@ -378,6 +434,31 @@ export default function ProjectDetailsPage() {
 
             {/* Quick Action Buttons */}
             <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.5, pt: 1 }}>
+              <Button
+                variant="outlined"
+                onClick={handleOpenEdit}
+                startIcon={<EditOutlinedIcon />}
+                sx={{
+                  bgcolor: 'rgba(255,255,255,0.15)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255,255,255,0.4)',
+                  color: '#fff',
+                  borderRadius: '10px',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  px: 2,
+                  py: 1,
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.12)',
+                  '&:hover': {
+                    bgcolor: 'rgba(255,255,255,0.28)',
+                    borderColor: '#fff',
+                  },
+                }}
+              >
+                Edit Project
+              </Button>
+
               <Button
                 variant="contained"
                 onClick={handleShareNavigator}
@@ -1001,6 +1082,98 @@ export default function ProjectDetailsPage() {
           </Box>
         </Box>
       </Box>
+
+      {/* Edit Project Dialog */}
+      <Dialog
+        open={editDialogOpen}
+        onClose={() => !isSavingEdit && setEditDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px', p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>Edit Project Details</span>
+          <IconButton size="small" onClick={() => setEditDialogOpen(false)} disabled={isSavingEdit}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" sx={{ color: '#64748b' }}>
+            Update the project title, designer attribution, description, and visibility.
+          </Typography>
+
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            label="Project Name *"
+            placeholder="e.g. Modern Villa, Hotel Lobby"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            disabled={isSavingEdit}
+          />
+
+          <TextField
+            fullWidth
+            size="small"
+            label="Designer / Studio Name"
+            placeholder="e.g. Studio Luxe, Sarah Jenkins"
+            value={editCreator}
+            onChange={(e) => setEditCreator(e.target.value)}
+            disabled={isSavingEdit}
+          />
+
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            size="small"
+            label="Project Description"
+            placeholder="Describe the aesthetic, rooms, fabric choices, or purpose of this project..."
+            value={editDesc}
+            onChange={(e) => setEditDesc(e.target.value)}
+            disabled={isSavingEdit}
+          />
+
+          <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: '#f0f9ff', border: '1px solid #bae6fd' }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={editIsPublic}
+                  onChange={(e) => setEditIsPublic(e.target.checked)}
+                  color="primary"
+                  disabled={isSavingEdit}
+                />
+              }
+              label={
+                <Box>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#0369a1' }}>
+                    Public Project Showcase
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, color: '#0284c7' }}>
+                    {editIsPublic ? 'Visible to everyone in Explore Showcase.' : 'Private (only visible in your personal workspace).'}
+                  </Typography>
+                </Box>
+              }
+              sx={{ m: 0 }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={() => setEditDialogOpen(false)} disabled={isSavingEdit} sx={{ color: '#64748b', textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveEdit}
+            disabled={isSavingEdit || !editName.trim()}
+            startIcon={isSavingEdit ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : null}
+            sx={{ bgcolor: '#0284c7', borderRadius: '8px', textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: '#0369a1' } }}
+          >
+            {isSavingEdit ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar Notification */}
       <Snackbar

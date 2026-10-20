@@ -42,10 +42,14 @@ import TuneIcon from '@mui/icons-material/Tune';
 import ExploreOutlinedIcon from '@mui/icons-material/ExploreOutlined';
 import CloseIcon from '@mui/icons-material/Close';
 import ShareIcon from '@mui/icons-material/Share';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import RemoveIcon from '@mui/icons-material/Remove';
 
 import {
   getProjects,
   createProject,
+  updateProject,
+  updateProjectItem,
   deleteProject,
   removeItemFromProject,
   orderProjectToCart,
@@ -68,12 +72,28 @@ export default function ProjectsPage() {
   // My Projects selection
   const [activeProjectId, setActiveProjectId] = useState(null);
 
-  // Modal dialog states
+  // Modal dialog states: Create
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectCreator, setNewProjectCreator] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [newProjectIsPublic, setNewProjectIsPublic] = useState(true);
+
+  // Modal dialog states: Edit Project
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingProjectId, setEditingProjectId] = useState(null);
+  const [editProjectName, setEditProjectName] = useState('');
+  const [editProjectCreator, setEditProjectCreator] = useState('');
+  const [editProjectDesc, setEditProjectDesc] = useState('');
+  const [editProjectIsPublic, setEditProjectIsPublic] = useState(true);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // Modal dialog states: Edit Item
+  const [editItemDialogOpen, setEditItemDialogOpen] = useState(false);
+  const [editingItemId, setEditingItemId] = useState(null);
+  const [editItemAreaName, setEditItemAreaName] = useState('');
+  const [editItemQuantity, setEditItemQuantity] = useState(1);
+  const [isSavingItemEdit, setIsSavingItemEdit] = useState(false);
 
   // Feedback notifications
   const [statusMessage, setStatusMessage] = useState({ text: '', severity: 'success' });
@@ -238,6 +258,100 @@ export default function ProjectsPage() {
       setActiveTab(1); // switch to My Projects
     }
     showToast(`Project "${created.name}" created successfully!`);
+  };
+
+  // Open Edit Project
+  const handleOpenEditProject = (proj) => {
+    if (!proj) return;
+    setEditingProjectId(proj.id);
+    setEditProjectName(proj.name || '');
+    setEditProjectCreator(proj.creatorName || '');
+    setEditProjectDesc(proj.description || '');
+    setEditProjectIsPublic(proj.isPublic !== false);
+    setEditDialogOpen(true);
+  };
+
+  // Save Edit Project
+  const handleSaveEditProject = async () => {
+    const trimmedName = editProjectName.trim();
+    if (!trimmedName) {
+      showToast('Project name cannot be empty.', 'error');
+      return;
+    }
+    setIsSavingEdit(true);
+    try {
+      const updated = await updateProject(editingProjectId, {
+        name: trimmedName,
+        creatorName: editProjectCreator.trim(),
+        description: editProjectDesc.trim(),
+        isPublic: editProjectIsPublic,
+      });
+      if (updated) {
+        setProjects((prev) =>
+          prev.map((p) => (p.id === editingProjectId ? { ...p, ...updated } : p))
+        );
+        showToast(`Project "${trimmedName}" updated successfully!`);
+        setEditDialogOpen(false);
+      } else {
+        showToast('Failed to update project.', 'error');
+      }
+    } catch (err) {
+      console.error('Error updating project:', err);
+      showToast('Error updating project.', 'error');
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  // Open Edit Item
+  const handleOpenEditItem = (proj, item) => {
+    if (!item) return;
+    setEditingItemId(item.id);
+    setEditItemAreaName(item.areaName || '');
+    setEditItemQuantity(item.quantity || 1);
+    setEditItemDialogOpen(true);
+  };
+
+  // Save Edit Item
+  const handleSaveEditItem = async () => {
+    const trimmedArea = editItemAreaName.trim();
+    if (!trimmedArea) {
+      showToast('Area or room name is required.', 'error');
+      return;
+    }
+    const q = Math.max(1, Number(editItemQuantity) || 1);
+    setIsSavingItemEdit(true);
+    try {
+      const updated = await updateProjectItem(activeProject?.id, editingItemId, {
+        areaName: trimmedArea,
+        quantity: q,
+      });
+      if (updated) {
+        await loadAllProjects();
+        showToast(`Shade item updated! (${trimmedArea}, Qty: ${q})`);
+        setEditItemDialogOpen(false);
+      } else {
+        showToast('Failed to update shade item.', 'error');
+      }
+    } catch (err) {
+      console.error('Error updating item:', err);
+      showToast('Error updating shade item.', 'error');
+    } finally {
+      setIsSavingItemEdit(false);
+    }
+  };
+
+  // Quick adjust item quantity
+  const handleUpdateItemQuantity = async (projId, itemId, newQty) => {
+    const q = Math.max(1, Number(newQty) || 1);
+    try {
+      await updateProjectItem(projId, itemId, { quantity: q });
+      await loadAllProjects();
+      showToast(`Quantity updated to ${q}.`);
+    } catch (err) {
+      console.error('Error updating quantity:', err);
+      showToast('Failed to update quantity.', 'error');
+    }
   };
 
   // Delete Project
@@ -1002,9 +1116,23 @@ export default function ProjectsPage() {
                             <Typography sx={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
                               {proj.name}
                             </Typography>
-                            {proj.status === 'ordered' && (
-                              <Chip label="Ordered" size="small" color="success" sx={{ height: 20, fontSize: 11 }} />
-                            )}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              {proj.status === 'ordered' && (
+                                <Chip label="Ordered" size="small" color="success" sx={{ height: 20, fontSize: 11 }} />
+                              )}
+                              <Tooltip title="Edit project">
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenEditProject(proj);
+                                  }}
+                                  sx={{ p: 0.5, color: '#64748b', '&:hover': { color: '#0284c7', bgcolor: '#f0f9ff' } }}
+                                >
+                                  <EditOutlinedIcon sx={{ fontSize: 15 }} />
+                                </IconButton>
+                              </Tooltip>
+                            </Box>
                           </Box>
                           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <Typography sx={{ fontSize: 12, color: '#64748b' }}>
@@ -1043,7 +1171,7 @@ export default function ProjectsPage() {
                     {/* Project Workspace Header */}
                     <Box sx={{ p: { xs: 2.5, md: 3 }, borderBottom: '1px solid #e2e8f0', bgcolor: '#fff' }}>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2 }}>
-                        <Box>
+                        <Box sx={{ maxWidth: { xs: '100%', md: 620 } }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#0284c7', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                               WORKSPACE
@@ -1060,7 +1188,7 @@ export default function ProjectsPage() {
                               }
                               label={
                                 <Typography sx={{ fontSize: 12, fontWeight: 700, color: activeProject.isPublic ? '#0284c7' : '#64748b' }}>
-                                  {activeProject.isPublic ? 'Public Showcase (Visible to All)' : 'Private (Only You)'}
+                                  {activeProject.isPublic ? 'Public Showcase' : 'Private'}
                                 </Typography>
                               }
                               sx={{ m: 0, ml: 1 }}
@@ -1072,10 +1200,33 @@ export default function ProjectsPage() {
                           <Typography sx={{ fontSize: 13, color: '#64748b', mt: 0.5 }}>
                             Created {new Date(activeProject.createdAt).toLocaleDateString()} · Designer: {activeProject.creatorName || 'You'}
                           </Typography>
+                          {activeProject.description && (
+                            <Typography sx={{ fontSize: 13, color: '#475569', mt: 1, lineHeight: 1.5 }}>
+                              {activeProject.description}
+                            </Typography>
+                          )}
                         </Box>
 
                         {/* Top Buttons */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexWrap: 'wrap' }}>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<EditOutlinedIcon />}
+                            onClick={() => handleOpenEditProject(activeProject)}
+                            sx={{
+                              borderRadius: '8px',
+                              textTransform: 'none',
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: '#0284c7',
+                              borderColor: '#0284c7',
+                              '&:hover': { bgcolor: '#f0f9ff', borderColor: '#0369a1' },
+                            }}
+                          >
+                            Edit Project
+                          </Button>
+
                           <Button
                             component={Link}
                             href={`/projects/${activeProject.id}`}
@@ -1218,15 +1369,36 @@ export default function ProjectsPage() {
                                   display: 'flex',
                                   alignItems: 'center',
                                   justifyContent: { xs: 'space-between', sm: 'flex-end' },
-                                  gap: { xs: 2, sm: 3 },
+                                  gap: { xs: 1.5, sm: 2 },
                                   borderTop: { xs: '1px solid #e2e8f0', sm: 'none' },
                                   pt: { xs: 1.5, sm: 0 },
                                 }}
                               >
-                                <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
-                                  <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                                    Qty <strong>{item.quantity}</strong>
+                                {/* Quick Quantity Adjuster */}
+                                <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', p: 0.25 }}>
+                                  <IconButton
+                                    size="small"
+                                    disabled={item.quantity <= 1}
+                                    onClick={() => handleUpdateItemQuantity(activeProject.id, item.id, item.quantity - 1)}
+                                    sx={{ p: 0.5, color: '#475569' }}
+                                    title="Decrease quantity"
+                                  >
+                                    <RemoveIcon sx={{ fontSize: 14 }} />
+                                  </IconButton>
+                                  <Typography sx={{ px: 1, fontSize: 13, fontWeight: 800, minWidth: 26, textAlign: 'center', color: '#0f172a' }}>
+                                    {item.quantity}
                                   </Typography>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleUpdateItemQuantity(activeProject.id, item.id, item.quantity + 1)}
+                                    sx={{ p: 0.5, color: '#475569' }}
+                                    title="Increase quantity"
+                                  >
+                                    <AddIcon sx={{ fontSize: 14 }} />
+                                  </IconButton>
+                                </Box>
+
+                                <Box sx={{ textAlign: { xs: 'left', sm: 'right' } }}>
                                   <Typography sx={{ fontSize: 11, color: '#94a3b8' }}>
                                     (${item.unitPrice.toFixed(2)} ea)
                                   </Typography>
@@ -1236,14 +1408,25 @@ export default function ProjectsPage() {
                                   ${item.totalPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </Typography>
 
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleRemoveItem(activeProject.id, item.id)}
-                                  sx={{ color: '#94a3b8', '&:hover': { color: '#ef4444' } }}
-                                  title="Remove item"
-                                >
-                                  <DeleteOutlineIcon fontSize="small" />
-                                </IconButton>
+                                <Tooltip title="Edit room name or specs">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleOpenEditItem(activeProject, item)}
+                                    sx={{ color: '#64748b', '&:hover': { color: '#0284c7', bgcolor: '#f0f9ff' } }}
+                                  >
+                                    <EditOutlinedIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+
+                                <Tooltip title="Remove item">
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleRemoveItem(activeProject.id, item.id)}
+                                    sx={{ color: '#94a3b8', '&:hover': { color: '#ef4444', bgcolor: '#fef2f2' } }}
+                                  >
+                                    <DeleteOutlineIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
                               </Box>
                             </Box>
                           ))}
@@ -1392,6 +1575,202 @@ export default function ProjectsPage() {
             sx={{ bgcolor: '#0f172a', borderRadius: '8px', textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: '#1e293b' } }}
           >
             Create Project
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ============================================================== */}
+      {/* EDIT PROJECT DETAILS DIALOG                                    */}
+      {/* ============================================================== */}
+      <Dialog
+        open={editDialogOpen}
+        onClose={() => !isSavingEdit && setEditDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px', p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>Edit Project Details</span>
+          <IconButton size="small" onClick={() => setEditDialogOpen(false)} disabled={isSavingEdit}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" sx={{ color: '#64748b' }}>
+            Update your project title, designer identity, and description.
+          </Typography>
+
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            label="Project Name *"
+            placeholder="e.g. Modern Villa, Hotel Lobby"
+            value={editProjectName}
+            onChange={(e) => setEditProjectName(e.target.value)}
+            disabled={isSavingEdit}
+          />
+
+          <TextField
+            fullWidth
+            size="small"
+            label="Designer / Studio Name"
+            placeholder="e.g. Studio Luxe, Sarah Jenkins"
+            value={editProjectCreator}
+            onChange={(e) => setEditProjectCreator(e.target.value)}
+            disabled={isSavingEdit}
+          />
+
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            size="small"
+            label="Project Description"
+            placeholder="Describe the aesthetic, rooms, fabric choices, or purpose of this project..."
+            value={editProjectDesc}
+            onChange={(e) => setEditProjectDesc(e.target.value)}
+            disabled={isSavingEdit}
+          />
+
+          <Box sx={{ p: 1.5, borderRadius: '8px', bgcolor: '#f0f9ff', border: '1px solid #bae6fd' }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={editProjectIsPublic}
+                  onChange={(e) => setEditProjectIsPublic(e.target.checked)}
+                  color="primary"
+                  disabled={isSavingEdit}
+                />
+              }
+              label={
+                <Box>
+                  <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#0369a1' }}>
+                    Public Project Showcase
+                  </Typography>
+                  <Typography sx={{ fontSize: 11, color: '#0284c7' }}>
+                    {editProjectIsPublic ? 'Visible to everyone in Explore Showcase.' : 'Private (only visible in your personal workspace).'}
+                  </Typography>
+                </Box>
+              }
+              sx={{ m: 0 }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={() => setEditDialogOpen(false)} disabled={isSavingEdit} sx={{ color: '#64748b', textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveEditProject}
+            disabled={isSavingEdit || !editProjectName.trim()}
+            startIcon={isSavingEdit ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : null}
+            sx={{ bgcolor: '#0284c7', borderRadius: '8px', textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: '#0369a1' } }}
+          >
+            {isSavingEdit ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ============================================================== */}
+      {/* EDIT ITEM DIALOG                                               */}
+      {/* ============================================================== */}
+      <Dialog
+        open={editItemDialogOpen}
+        onClose={() => !isSavingItemEdit && setEditItemDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: '16px', p: 1 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>Edit Shade Item</span>
+          <IconButton size="small" onClick={() => setEditItemDialogOpen(false)} disabled={isSavingItemEdit}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" sx={{ color: '#64748b' }}>
+            Rename the designated room or adjust the order quantity for this custom shade.
+          </Typography>
+
+          <TextField
+            autoFocus
+            fullWidth
+            size="small"
+            label="Room / Area Name *"
+            placeholder="e.g. Hotel Lobby, Guest Room 101, Dining Room"
+            value={editItemAreaName}
+            onChange={(e) => setEditItemAreaName(e.target.value)}
+            disabled={isSavingItemEdit}
+          />
+
+          {/* Quick suggestions */}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+            {['Lobby', 'Living Room', 'Dining Room', 'Guest Room', 'Master Bedroom', 'Corridor'].map((area) => (
+              <Chip
+                key={area}
+                label={area}
+                size="small"
+                clickable
+                onClick={() => setEditItemAreaName(area)}
+                sx={{
+                  fontSize: 11,
+                  cursor: 'pointer',
+                  bgcolor: editItemAreaName === area ? '#0284c7' : '#f1f5f9',
+                  color: editItemAreaName === area ? '#fff' : '#475569',
+                  fontWeight: editItemAreaName === area ? 700 : 500,
+                }}
+              />
+            ))}
+          </Box>
+
+          <Box>
+            <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#475569', mb: 1 }}>
+              Quantity
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <IconButton
+                size="small"
+                disabled={editItemQuantity <= 1 || isSavingItemEdit}
+                onClick={() => setEditItemQuantity((prev) => Math.max(1, prev - 1))}
+                sx={{ border: '1px solid #cbd5e1', borderRadius: '8px' }}
+              >
+                <RemoveIcon fontSize="small" />
+              </IconButton>
+
+              <TextField
+                type="number"
+                size="small"
+                value={editItemQuantity}
+                onChange={(e) => setEditItemQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                inputProps={{ min: 1, style: { textAlign: 'center', fontWeight: 700, width: 60 } }}
+                disabled={isSavingItemEdit}
+              />
+
+              <IconButton
+                size="small"
+                disabled={isSavingItemEdit}
+                onClick={() => setEditItemQuantity((prev) => prev + 1)}
+                sx={{ border: '1px solid #cbd5e1', borderRadius: '8px' }}
+              >
+                <AddIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={() => setEditItemDialogOpen(false)} disabled={isSavingItemEdit} sx={{ color: '#64748b', textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveEditItem}
+            disabled={isSavingItemEdit || !editItemAreaName.trim()}
+            startIcon={isSavingItemEdit ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : null}
+            sx={{ bgcolor: '#0284c7', borderRadius: '8px', textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: '#0369a1' } }}
+          >
+            {isSavingItemEdit ? 'Saving...' : 'Save Item'}
           </Button>
         </DialogActions>
       </Dialog>

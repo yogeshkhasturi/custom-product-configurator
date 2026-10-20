@@ -249,6 +249,36 @@ const cloneProject = async (req, res) => {
   }
 };
 
+const updateProjectItem = async (req, res) => {
+  try {
+    const { id, itemId } = req.params;
+    const { areaName, quantity } = req.body;
+    const project = await Project.findById(id);
+    if (!project) {
+      return res.status(404).json({ success: false, message: 'Project not found.' });
+    }
+
+    const item = project.items.find((i) => String(i._id) === String(itemId) || String(i.id) === String(itemId));
+    if (!item) {
+      return res.status(404).json({ success: false, message: 'Project item not found.' });
+    }
+
+    if (areaName && areaName.trim()) {
+      item.areaName = areaName.trim();
+    }
+    if (quantity !== undefined && !isNaN(quantity)) {
+      const q = Math.max(1, Number(quantity) || 1);
+      item.quantity = q;
+      item.totalPrice = Math.round((item.unitPrice || 0) * q * 100) / 100;
+    }
+
+    await project.save();
+    res.json({ success: true, data: project });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Failed to update project item.', error: err.message });
+  }
+};
+
 module.exports = {
   getProjects,
   getProject,
@@ -257,6 +287,7 @@ module.exports = {
   updateProjectVisibility,
   cloneProject,
   addItemToProject,
+  updateProjectItem,
   removeItemFromProject,
   updateProjectStatus,
   deleteProject,
