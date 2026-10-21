@@ -363,7 +363,16 @@ function DraggableSteps({ steps, currentStep, onGoToStep, onReorder }) {
   );
 }
 
-export default function StepsConfigurator({ product, gallery, activeImage, setGallery, setActiveImage, onPriceResult, onConfigResolving }) {
+export default function StepsConfigurator({
+  product,
+  gallery,
+  activeImage,
+  setGallery,
+  setActiveImage,
+  onPriceResult,
+  onConfigResolving,
+  onLiveSelectionsChange,
+}) {
   const customizationFields = product.customizationFields || [];
 
   const [currentStep, setCurrentStep] = useState(0);
@@ -506,6 +515,20 @@ export default function StepsConfigurator({ product, gallery, activeImage, setGa
             }
           }
         }
+
+        // Find covering swatch image if available
+        let coveringImg = '';
+        for (const step of configSteps) {
+          const stepSel = stepSelections[step.id] || {};
+          for (const field of (step.fields || [])) {
+            if (/covering|fabric|material|exterior/i.test(field.name)) {
+              const val = stepSel[field.name];
+              const opt = (field.options || []).find((o) => String(o.value) === String(val) || String(o.label) === String(val));
+              if (opt?.images?.[0]) coveringImg = opt.images[0];
+            }
+          }
+        }
+        onLiveSelectionsChange?.({ ...flatSelections, _coveringImage: coveringImg });
 
         const [priceRes, configRes] = await Promise.allSettled([
           calculateStepsPrice({ id: product._id, stepSelections, quantity: 1 }).unwrap(),

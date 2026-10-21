@@ -9,7 +9,7 @@ import Divider from '@mui/material/Divider';
 import Tooltip from '@mui/material/Tooltip';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
-
+import Chip from '@mui/material/Chip';
 import CheckIcon from '@mui/icons-material/Check';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
@@ -17,12 +17,15 @@ import RemoveIcon from '@mui/icons-material/Remove';
 import AddIcon from '@mui/icons-material/Add';
 import Button from '@mui/material/Button';
 import FolderSpecialOutlinedIcon from '@mui/icons-material/FolderSpecialOutlined';
+import ViewInArIcon from '@mui/icons-material/ViewInAr';
+import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import Link from 'next/link';
 
 import { useGetProductByIdQuery, useResolveConfigurationMutation } from '../../../lib/productsApi';
 import { isFieldVisible, resolveImageUrl, resolveImageUrls } from '../../../lib/pricingUtils';
 import StepsConfigurator from './steps/StepsConfigurator';
 import ProductImageMagnifier from './ProductImageMagnifier';
+import Lampshade3DViewer from './Lampshade3DViewer';
 
 // Numbered step badge (1, 2, 3)
 function StepBadge({ number }) {
@@ -197,12 +200,47 @@ function ProductDetail() {
   const [configResolving, setConfigResolving] = useState(false);
   const [loadedImageUrl, setLoadedImageUrl] = useState('');
   const [stepsPriceResult, setStepsPriceResult] = useState(null);
+  const [viewMode, setViewMode] = useState('photo'); // 'photo' | '3d'
+  const [liveStepsSelections, setLiveStepsSelections] = useState({});
   const resolveReqId = useRef(0);
 
   const displayGallery = gallery.length > 0 ? gallery : resolveImageUrls(product?.images || []);
   const activeImageUrl = displayGallery?.[activeImage];
   const isImageLoading = Boolean(activeImageUrl && loadedImageUrl !== activeImageUrl);
   const isGalleryLoading = configResolving || isImageLoading;
+
+  // Active 3D Visualizer Dimensions and Covering parameters
+  const active3DParams = useMemo(() => {
+    const source = isStepsMode ? liveStepsSelections : userSelections;
+    let top = 8;
+    let bottom = 14;
+    let height = 10;
+    let covering = 'Natural Linen';
+    let coveringImg = isStepsMode ? liveStepsSelections._coveringImage || '' : '';
+    let attachment = 'Washer';
+
+    for (const [key, val] of Object.entries(source || {})) {
+      if (key.startsWith('_')) continue;
+      const k = key.toLowerCase();
+      const v = String(val);
+      if (k.includes('top') && (k.includes('diameter') || k.includes('size') || k.includes('dim'))) {
+        const parsed = parseFloat(v);
+        if (!isNaN(parsed) && parsed > 0) top = parsed;
+      } else if (k.includes('bottom') && (k.includes('diameter') || k.includes('size') || k.includes('dim'))) {
+        const parsed = parseFloat(v);
+        if (!isNaN(parsed) && parsed > 0) bottom = parsed;
+      } else if ((k.includes('height') || k.includes('slant')) && !k.includes('drop')) {
+        const parsed = parseFloat(v);
+        if (!isNaN(parsed) && parsed > 0) height = parsed;
+      } else if (k.includes('covering') || k.includes('fabric') || k.includes('material') || k.includes('exterior')) {
+        covering = v;
+      } else if (k.includes('attachment') || k.includes('fitter')) {
+        attachment = v;
+      }
+    }
+
+    return { top, bottom, height, covering, coveringImg, attachment };
+  }, [isStepsMode, liveStepsSelections, userSelections]);
 
   // Set page title dynamically
   useEffect(() => {
@@ -280,27 +318,92 @@ function ProductDetail() {
           >
             {/* Gallery — reuse existing gallery logic */}
             <Box sx={{ gridColumn: { xs: '1', md: '1', lg: '1' }, gridRow: { xs: 'auto', md: '1 / span 2', lg: 'auto' }, position: { md: 'sticky' }, top: { md: 24 } }}>
-              <Box sx={{ display: 'flex', flexDirection: { xs: 'column-reverse', sm: 'row' }, gap: { xs: 1.5, sm: 2 }, alignItems: 'stretch' }}>
-                {displayGallery?.length > 1 && (
-                  <Box sx={{ display: 'flex', flexDirection: { xs: 'row', sm: 'column' }, justifyContent: { xs: 'center', sm: 'flex-start' }, flexWrap: { xs: 'wrap', sm: 'nowrap' }, gap: 1.25 }}>
-                    {displayGallery.map((img, i) => (
-                      <Box key={i} onClick={() => setActiveImage(i)}
-                        sx={{ width: { xs: 60, sm: 64, md: 70 }, height: { xs: 60, sm: 64, md: 70 }, flexShrink: 0, borderRadius: '8px', overflow: 'hidden', cursor: 'pointer', bgcolor: '#fff', border: '2px solid', borderColor: i === activeImage ? '#0284c7' : '#e2e8f0', p: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
-                        <img src={img} alt={`Thumbnail ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                      </Box>
-                    ))}
-                  </Box>
+              {/* View Switcher: 2D Photo Gallery vs Interactive 3D */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, gap: 1 }}>
+                <Box sx={{ display: 'inline-flex', bgcolor: '#e2e8f0', p: 0.5, borderRadius: '10px' }}>
+                  <Button
+                    size="small"
+                    onClick={() => setViewMode('photo')}
+                    startIcon={<PhotoLibraryIcon sx={{ fontSize: 16 }} />}
+                    sx={{
+                      borderRadius: '8px',
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      fontSize: 12,
+                      px: 1.5,
+                      py: 0.5,
+                      bgcolor: viewMode === 'photo' ? '#fff' : 'transparent',
+                      color: viewMode === 'photo' ? '#0f172a' : '#64748b',
+                      boxShadow: viewMode === 'photo' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                      '&:hover': { bgcolor: viewMode === 'photo' ? '#fff' : 'rgba(255,255,255,0.4)' },
+                    }}
+                  >
+                    Photos
+                  </Button>
+                  <Button
+                    size="small"
+                    onClick={() => setViewMode('3d')}
+                    startIcon={<ViewInArIcon sx={{ fontSize: 16 }} />}
+                    sx={{
+                      borderRadius: '8px',
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      fontSize: 12,
+                      px: 1.5,
+                      py: 0.5,
+                      bgcolor: viewMode === '3d' ? '#0f172a' : 'transparent',
+                      color: viewMode === '3d' ? '#fff' : '#64748b',
+                      boxShadow: viewMode === '3d' ? '0 2px 6px rgba(15,23,42,0.2)' : 'none',
+                      '&:hover': { bgcolor: viewMode === '3d' ? '#1e293b' : 'rgba(255,255,255,0.4)' },
+                    }}
+                  >
+                    3D Studio
+                  </Button>
+                </Box>
+
+                {viewMode === '3d' && (
+                  <Chip
+                    size="small"
+                    label="360° Real-time"
+                    sx={{ bgcolor: '#f0f9ff', color: '#0284c7', fontWeight: 700, fontSize: 11, border: '1px solid #bae6fd' }}
+                  />
                 )}
-                <Box sx={{ flex: 1, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: { xs: 2, sm: 2.5, md: 3 }, height: { xs: 320, sm: 380, md: 440, lg: 480 }, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
-                  <ProductImageMagnifier
-                    src={displayGallery?.[activeImage]}
-                    alt={product.name}
-                    onLoad={() => setLoadedImageUrl(activeImageUrl)}
-                    onError={() => setLoadedImageUrl(activeImageUrl)}
-                    isLoading={isGalleryLoading}
+              </Box>
+
+              {viewMode === '3d' ? (
+                <Box sx={{ width: '100%', height: { xs: 340, sm: 400, md: 460, lg: 500 }, borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                  <Lampshade3DViewer
+                    topDiameter={active3DParams.top}
+                    bottomDiameter={active3DParams.bottom}
+                    height={active3DParams.height}
+                    coveringName={active3DParams.covering}
+                    coveringImageUrl={active3DParams.coveringImg}
+                    attachmentStyle={active3DParams.attachment}
                   />
                 </Box>
-              </Box>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column-reverse', sm: 'row' }, gap: { xs: 1.5, sm: 2 }, alignItems: 'stretch' }}>
+                  {displayGallery?.length > 1 && (
+                    <Box sx={{ display: 'flex', flexDirection: { xs: 'row', sm: 'column' }, justifyContent: { xs: 'center', sm: 'flex-start' }, flexWrap: { xs: 'wrap', sm: 'nowrap' }, gap: 1.25 }}>
+                      {displayGallery.map((img, i) => (
+                        <Box key={i} onClick={() => setActiveImage(i)}
+                          sx={{ width: { xs: 60, sm: 64, md: 70 }, height: { xs: 60, sm: 64, md: 70 }, flexShrink: 0, borderRadius: '8px', overflow: 'hidden', cursor: 'pointer', bgcolor: '#fff', border: '2px solid', borderColor: i === activeImage ? '#0284c7' : '#e2e8f0', p: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.15s ease' }}>
+                          <img src={img} alt={`Thumbnail ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                        </Box>
+                      ))}
+                    </Box>
+                  )}
+                  <Box sx={{ flex: 1, bgcolor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', p: { xs: 2, sm: 2.5, md: 3 }, height: { xs: 320, sm: 380, md: 440, lg: 480 }, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+                    <ProductImageMagnifier
+                      src={displayGallery?.[activeImage]}
+                      alt={product.name}
+                      onLoad={() => setLoadedImageUrl(activeImageUrl)}
+                      onError={() => setLoadedImageUrl(activeImageUrl)}
+                      isLoading={isGalleryLoading}
+                    />
+                  </Box>
+                </Box>
+              )}
             </Box>
 
             {/* Steps Configurator */}
@@ -334,6 +437,7 @@ function ProductDetail() {
                 setActiveImage={setActiveImage}
                 onPriceResult={setStepsPriceResult}
                 onConfigResolving={setConfigResolving}
+                onLiveSelectionsChange={setLiveStepsSelections}
               />
             </Box>
 
@@ -465,85 +569,150 @@ function ProductDetail() {
               top: { md: 24 },
             }}
           >
-            <Box
-              sx={{
-                display: 'flex',
-                flexDirection: { xs: 'column-reverse', sm: 'row' },
-                gap: { xs: 1.5, sm: 2 },
-                alignItems: 'stretch',
-              }}
-            >
-              {/* Thumbnails: horizontal row below on mobile, vertical column on tablet/desktop */}
-              {displayGallery?.length > 1 && (
-                <Box
+            {/* View Switcher: 2D Photo Gallery vs Interactive 3D */}
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, gap: 1 }}>
+              <Box sx={{ display: 'inline-flex', bgcolor: '#e2e8f0', p: 0.5, borderRadius: '10px' }}>
+                <Button
+                  size="small"
+                  onClick={() => setViewMode('photo')}
+                  startIcon={<PhotoLibraryIcon sx={{ fontSize: 16 }} />}
                   sx={{
-                    display: 'flex',
-                    flexDirection: { xs: 'row', sm: 'column' },
-                    justifyContent: { xs: 'center', sm: 'flex-start' },
-                    flexWrap: { xs: 'wrap', sm: 'nowrap' },
-                    gap: 1.25,
+                    borderRadius: '8px',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: 12,
+                    px: 1.5,
+                    py: 0.5,
+                    bgcolor: viewMode === 'photo' ? '#fff' : 'transparent',
+                    color: viewMode === 'photo' ? '#0f172a' : '#64748b',
+                    boxShadow: viewMode === 'photo' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                    '&:hover': { bgcolor: viewMode === 'photo' ? '#fff' : 'rgba(255,255,255,0.4)' },
                   }}
                 >
-                  {displayGallery.map((img, i) => (
-                    <Box
-                      key={i}
-                      onClick={() => setActiveImage(i)}
-                      sx={{
-                        width: { xs: 60, sm: 64, md: 70 },
-                        height: { xs: 60, sm: 64, md: 70 },
-                        flexShrink: 0,
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                        cursor: 'pointer',
-                        bgcolor: '#ffffff',
-                        border: '2px solid',
-                        borderColor: i === activeImage ? '#0284c7' : '#e2e8f0',
-                        boxShadow: i === activeImage ? '0 0 0 1px #0284c7' : 'none',
-                        p: 0.5,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'all 0.15s ease',
-                        '&:hover': {
-                          borderColor: i === activeImage ? '#0284c7' : '#94a3b8',
-                        },
-                      }}
-                    >
-                      <img
-                        src={img}
-                        alt={`Thumbnail ${i + 1}`}
-                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                      />
-                    </Box>
-                  ))}
-                </Box>
-              )}
+                  Photos
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => setViewMode('3d')}
+                  startIcon={<ViewInArIcon sx={{ fontSize: 16 }} />}
+                  sx={{
+                    borderRadius: '8px',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: 12,
+                    px: 1.5,
+                    py: 0.5,
+                    bgcolor: viewMode === '3d' ? '#0f172a' : 'transparent',
+                    color: viewMode === '3d' ? '#fff' : '#64748b',
+                    boxShadow: viewMode === '3d' ? '0 2px 6px rgba(15,23,42,0.2)' : 'none',
+                    '&:hover': { bgcolor: viewMode === '3d' ? '#1e293b' : 'rgba(255,255,255,0.4)' },
+                  }}
+                >
+                  3D Studio
+                </Button>
+              </Box>
 
-              {/* Main Product Image Container — Responsive Height */}
-              <Box
-                sx={{
-                  flex: 1,
-                  bgcolor: '#ffffff',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '12px',
-                  p: { xs: 2, sm: 2.5, md: 3 },
-                  position: 'relative',
-                  height: { xs: 320, sm: 380, md: 440, lg: 480 },
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden',
-                }}
-              >
-                <ProductImageMagnifier
-                  src={displayGallery?.[activeImage]}
-                  alt={product.name}
-                  onLoad={() => setLoadedImageUrl(activeImageUrl)}
-                  onError={() => setLoadedImageUrl(activeImageUrl)}
-                  isLoading={isGalleryLoading}
+              {viewMode === '3d' && (
+                <Chip
+                  size="small"
+                  label="360° Real-time"
+                  sx={{ bgcolor: '#f0f9ff', color: '#0284c7', fontWeight: 700, fontSize: 11, border: '1px solid #bae6fd' }}
+                />
+              )}
+            </Box>
+
+            {viewMode === '3d' ? (
+              <Box sx={{ width: '100%', height: { xs: 340, sm: 400, md: 460, lg: 500 }, borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                <Lampshade3DViewer
+                  topDiameter={active3DParams.top}
+                  bottomDiameter={active3DParams.bottom}
+                  height={active3DParams.height}
+                  coveringName={active3DParams.covering}
+                  coveringImageUrl={active3DParams.coveringImg}
+                  attachmentStyle={active3DParams.attachment}
                 />
               </Box>
-            </Box>
+            ) : (
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: { xs: 'column-reverse', sm: 'row' },
+                  gap: { xs: 1.5, sm: 2 },
+                  alignItems: 'stretch',
+                }}
+              >
+                {/* Thumbnails: horizontal row below on mobile, vertical column on tablet/desktop */}
+                {displayGallery?.length > 1 && (
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      flexDirection: { xs: 'row', sm: 'column' },
+                      justifyContent: { xs: 'center', sm: 'flex-start' },
+                      flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                      gap: 1.25,
+                    }}
+                  >
+                    {displayGallery.map((img, i) => (
+                      <Box
+                        key={i}
+                        onClick={() => setActiveImage(i)}
+                        sx={{
+                          width: { xs: 60, sm: 64, md: 70 },
+                          height: { xs: 60, sm: 64, md: 70 },
+                          flexShrink: 0,
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          cursor: 'pointer',
+                          bgcolor: '#ffffff',
+                          border: '2px solid',
+                          borderColor: i === activeImage ? '#0284c7' : '#e2e8f0',
+                          boxShadow: i === activeImage ? '0 0 0 1px #0284c7' : 'none',
+                          p: 0.5,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.15s ease',
+                          '&:hover': {
+                            borderColor: i === activeImage ? '#0284c7' : '#94a3b8',
+                          },
+                        }}
+                      >
+                        <img
+                          src={img}
+                          alt={`Thumbnail ${i + 1}`}
+                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                        />
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+
+                {/* Main Product Image Container — Responsive Height */}
+                <Box
+                  sx={{
+                    flex: 1,
+                    bgcolor: '#ffffff',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    p: { xs: 2, sm: 2.5, md: 3 },
+                    position: 'relative',
+                    height: { xs: 320, sm: 380, md: 440, lg: 480 },
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <ProductImageMagnifier
+                    src={displayGallery?.[activeImage]}
+                    alt={product.name}
+                    onLoad={() => setLoadedImageUrl(activeImageUrl)}
+                    onError={() => setLoadedImageUrl(activeImageUrl)}
+                    isLoading={isGalleryLoading}
+                  />
+                </Box>
+              </Box>
+            )}
           </Box>
 
           {/* ═════════════════════════════════════════════════════════════════════════ */}
