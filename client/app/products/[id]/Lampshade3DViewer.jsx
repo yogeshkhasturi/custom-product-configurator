@@ -474,7 +474,12 @@ export default function Lampshade3DViewer({
   const isCameraInitializedRef = useRef(false);
   const prevRadiusRef = useRef(null);
 
+  const ambientLightRef = useRef(null);
+  const keyLightRef = useRef(null);
+  const fillLightRef = useRef(null);
+
   const [isLampOn, setIsLampOn] = useState(true);
+  const isLampOnRef = useRef(true);
   const [isRotating, setIsRotating] = useState(true);
   const isRotatingRef = useRef(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -553,18 +558,21 @@ export default function Lampshade3DViewer({
 
     // ── STUDIO LIGHTING RIG ──
     // Ambient Light (soft fill)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
     scene.add(ambientLight);
+    ambientLightRef.current = ambientLight;
 
     // Key Light (warm directional, front-right)
     const keyLight = new THREE.DirectionalLight(0xfff8ee, 1.6);
     keyLight.position.set(12, 18, 14);
     scene.add(keyLight);
+    keyLightRef.current = keyLight;
 
     // Fill Light (cool directional, back-left for soft depth)
     const fillLight = new THREE.DirectionalLight(0xe8f0fe, 0.7);
     fillLight.position.set(-14, 8, -10);
     scene.add(fillLight);
+    fillLightRef.current = fillLight;
 
     // Lampshade Group
     const shadeGroup = new THREE.Group();
@@ -647,6 +655,111 @@ export default function Lampshade3DViewer({
       }
     };
   }, []); // Run once on mount
+
+  // Apply visual lighting state (Daylight Studio vs. Warm Evening Room)
+  const applyLightingState = useCallback((isLit) => {
+    isLampOnRef.current = isLit;
+    const scene = sceneRef.current;
+    if (!scene) return;
+
+    // 1. Atmosphere Transition: Crisp Daytime Studio vs. Rich Warm Evening Room
+    if (isLit) {
+      scene.background = new THREE.Color(0x131722); // Elegant deep twilight evening atmosphere
+      if (ambientLightRef.current) ambientLightRef.current.intensity = 0.22;
+      if (keyLightRef.current) keyLightRef.current.intensity = 0.35;
+      if (fillLightRef.current) fillLightRef.current.intensity = 0.18;
+    } else {
+      scene.background = new THREE.Color(0xf8fafc); // Crisp daytime photography studio
+      if (ambientLightRef.current) ambientLightRef.current.intensity = 0.75;
+      if (keyLightRef.current) keyLightRef.current.intensity = 1.6;
+      if (fillLightRef.current) fillLightRef.current.intensity = 0.70;
+    }
+
+    // 2. Point Lights inside and beneath the shade
+    if (internalLightRef.current) {
+      internalLightRef.current.intensity = isLit ? 5.5 : 0;
+      internalLightRef.current.color.set(0xffaa44);
+    }
+    if (downwardLightRef.current) {
+      downwardLightRef.current.intensity = isLit ? 3.6 : 0;
+      downwardLightRef.current.color.set(0xffeedd);
+    }
+
+    // 3. Ground Light Pool Spill on Tabletop
+    if (lightPoolRef.current?.material) {
+      lightPoolRef.current.material.opacity = isLit ? 0.90 : 0.0;
+      lightPoolRef.current.visible = isLit;
+    }
+
+    // 4. Light Bulb Envelope & Tungsten Filament
+    if (internalBulbRef.current?.material) {
+      internalBulbRef.current.material.color.set(isLit ? 0xfffdf6 : 0xf1f5f9);
+      internalBulbRef.current.material.emissive.set(isLit ? 0xffe6b0 : 0x000000);
+      internalBulbRef.current.material.emissiveIntensity = isLit ? 3.2 : 0;
+    }
+    if (filamentMeshRef.current?.material) {
+      filamentMeshRef.current.material.color.set(isLit ? 0xffffff : 0x444444);
+      filamentMeshRef.current.material.opacity = isLit ? 1.0 : 0.05;
+    }
+
+    // 5. Outer Fabric Backlit Glow from Within (Glowing Weave)
+    const baseColor = getCoveringColor(coveringName);
+    const isDark = /black|charcoal|dark|navy/i.test(coveringName);
+    const isNatural = /natural|tan|burlap|kraft/i.test(coveringName) && !isDark && !/white/i.test(coveringName);
+
+    const updateFabricMaterial = (mat) => {
+      if (!mat) return;
+      if (isLit) {
+        if (isDark) {
+          mat.emissive = new THREE.Color(0x3a2512); // Subtle warm amber rim bleed
+          mat.emissiveIntensity = 0.25;
+        } else if (isNatural) {
+          mat.emissive = new THREE.Color(0xf59e0b); // Rich warm amber honey glow
+          mat.emissiveIntensity = 1.25;
+        } else {
+          mat.emissive = new THREE.Color(0xffbe76); // Radiant warm incandescent white
+          mat.emissiveIntensity = 1.35;
+        }
+        // Set emissiveMap to diffuse texture so physical fabric threads glow from within!
+        if (mat.map) {
+          mat.emissiveMap = mat.map;
+        }
+      } else {
+        mat.emissive = new THREE.Color(0x000000);
+        mat.emissiveIntensity = 0;
+        mat.emissiveMap = null;
+      }
+      mat.needsUpdate = true;
+    };
+
+    updateFabricMaterial(outerMatRef.current);
+    updateFabricMaterial(seamMatRef.current);
+
+    // 6. Inner Liner (White styrene / paper lining inside shade)
+    if (innerMatRef.current) {
+      innerMatRef.current.color.set(isLit ? new THREE.Color(0xfffaec) : new THREE.Color(0xf8fafc));
+      innerMatRef.current.emissive.set(isLit ? new THREE.Color(0xffeedd) : new THREE.Color(0x000000));
+      innerMatRef.current.emissiveIntensity = isLit ? 1.0 : 0;
+      innerMatRef.current.needsUpdate = true;
+    }
+
+    // 7. Trim Tape
+    if (trimMatRef.current) {
+      if (isLit) {
+        trimMatRef.current.emissive = isDark
+          ? new THREE.Color(0x22140a)
+          : new THREE.Color(0xd4a373);
+        trimMatRef.current.emissiveIntensity = isDark ? 0.12 : 0.45;
+      } else {
+        trimMatRef.current.emissive = new THREE.Color(0x000000);
+        trimMatRef.current.emissiveIntensity = 0;
+      }
+      trimMatRef.current.needsUpdate = true;
+    }
+
+    needsRenderRef.current = true;
+    requestFrame();
+  }, [coveringName, requestFrame]);
 
   // 2. Build & Update Parametric Lampshade Geometry & Textures
   useEffect(() => {
@@ -777,6 +890,9 @@ export default function Lampshade3DViewer({
             outerMat.bumpMap = bumpTexture;
             outerMat.bumpScale = isDark ? 0.035 : 0.045;
           }
+          if (isLampOnRef.current) {
+            outerMat.emissiveMap = diffuseTexture;
+          }
           outerMat.needsUpdate = true;
 
           if (seamMatRef.current) {
@@ -785,6 +901,9 @@ export default function Lampshade3DViewer({
             if (bumpTexture) {
               seamMatRef.current.bumpMap = bumpTexture;
               seamMatRef.current.bumpScale = isDark ? 0.035 : 0.045;
+            }
+            if (isLampOnRef.current) {
+              seamMatRef.current.emissiveMap = diffuseTexture;
             }
             seamMatRef.current.needsUpdate = true;
           }
@@ -1099,75 +1218,17 @@ export default function Lampshade3DViewer({
       controls.update();
     }
 
+    // Apply active lighting state (Daylight Studio vs. Evening Glow) to all materials and lights
+    applyLightingState(isLampOnRef.current);
     requestFrame();
-  }, [numTop, numBottom, numHeight, coveringName, coveringImageUrl, attachmentStyle, isLampOn, requestFrame]);
+  }, [numTop, numBottom, numHeight, coveringName, coveringImageUrl, attachmentStyle, requestFrame, applyLightingState]);
 
   // Handle Lamp Light Toggle
   const handleToggleLight = () => {
     const next = !isLampOn;
     setIsLampOn(next);
-    if (internalLightRef.current) {
-      internalLightRef.current.intensity = next ? 2.4 : 0;
-    }
-    if (downwardLightRef.current) {
-      downwardLightRef.current.intensity = next ? 1.6 : 0;
-    }
-    if (lightPoolRef.current?.material) {
-      lightPoolRef.current.material.opacity = next ? 0.65 : 0;
-    }
-    if (filamentMeshRef.current?.material) {
-      filamentMeshRef.current.material.opacity = next ? 1.0 : 0.0;
-    }
-    if (internalBulbRef.current?.material) {
-      internalBulbRef.current.material.color.set(next ? 0xfffcf2 : 0xf1f5f9);
-      internalBulbRef.current.material.emissive.set(next ? 0xffedd5 : 0x000000);
-      internalBulbRef.current.material.emissiveIntensity = next ? 0.95 : 0;
-    }
-    if (innerMatRef.current) {
-      innerMatRef.current.color.set(next ? new THREE.Color(0xfff6e8) : new THREE.Color(0xf1f5f9));
-      innerMatRef.current.emissive.set(next ? new THREE.Color(0xffeedd) : new THREE.Color(0x000000));
-      innerMatRef.current.emissiveIntensity = next ? 0.45 : 0;
-      innerMatRef.current.needsUpdate = true;
-    }
-    const baseColor = getCoveringColor(coveringName);
-    const isDark = /black|charcoal|dark|navy/i.test(coveringName);
-    const isNatural = /natural|tan|burlap|kraft/i.test(coveringName) && !isDark && !/white/i.test(coveringName);
-
-    const updateShellEmissive = (mat) => {
-      if (!mat) return;
-      if (next) {
-        if (isDark) {
-          mat.emissive = new THREE.Color(0x101010);
-          mat.emissiveIntensity = 0.04;
-        } else if (isNatural) {
-          mat.emissive = new THREE.Color(0xd4a373);
-          mat.emissiveIntensity = 0.35;
-        } else {
-          mat.emissive = new THREE.Color(0xffedd5);
-          mat.emissiveIntensity = 0.38;
-        }
-      } else {
-        mat.emissive = new THREE.Color(0x000000);
-        mat.emissiveIntensity = 0;
-      }
-      mat.needsUpdate = true;
-    };
-
-    updateShellEmissive(outerMatRef.current);
-    updateShellEmissive(seamMatRef.current);
-
-    if (trimMatRef.current) {
-      if (next) {
-        trimMatRef.current.emissive = isDark ? new THREE.Color(0x050505) : new THREE.Color(baseColor).lerp(new THREE.Color(0xffeedd), 0.2);
-        trimMatRef.current.emissiveIntensity = isDark ? 0.03 : 0.22;
-      } else {
-        trimMatRef.current.emissive = new THREE.Color(0x000000);
-        trimMatRef.current.emissiveIntensity = 0;
-      }
-      trimMatRef.current.needsUpdate = true;
-    }
+    applyLightingState(next);
     onLightToggle?.(next);
-    requestFrame();
   };
 
   // Reset Camera View
@@ -1199,10 +1260,11 @@ export default function Lampshade3DViewer({
         width: '100%',
         height: '100%',
         minHeight: { xs: 340, sm: 400, md: 460 },
-        bgcolor: '#f8fafc',
+        bgcolor: isLampOn ? '#131722' : '#f8fafc',
         borderRadius: '12px',
         overflow: 'hidden',
         userSelect: 'none',
+        transition: 'background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
       }}
     >
       {/* 3D WebGL Canvas Mount */}
@@ -1236,30 +1298,59 @@ export default function Lampshade3DViewer({
             display: 'inline-flex',
             alignItems: 'center',
             gap: 1,
-            bgcolor: 'rgba(255, 255, 255, 0.92)',
+            bgcolor: isLampOn ? 'rgba(20, 24, 36, 0.88)' : 'rgba(255, 255, 255, 0.92)',
             backdropFilter: 'blur(8px)',
-            border: '1px solid #e2e8f0',
+            border: isLampOn ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #e2e8f0',
             borderRadius: '20px',
             px: 1.5,
             py: 0.5,
             boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
             pointerEvents: 'auto',
+            transition: 'all 0.3s ease',
           }}
         >
-          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: isLampOn ? '#f59e0b' : '#94a3b8' }} />
-          <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#0f172a' }}>
+          <Box
+            sx={{
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              bgcolor: isLampOn ? '#f59e0b' : '#94a3b8',
+              boxShadow: isLampOn ? '0 0 8px #f59e0b' : 'none',
+              transition: 'all 0.3s ease',
+            }}
+          />
+          <Typography sx={{ fontSize: 11, fontWeight: 700, color: isLampOn ? '#f8fafc' : '#0f172a' }}>
             {numTop}&quot; Top × {numBottom}&quot; Bottom × {numHeight}&quot; Height
           </Typography>
         </Box>
 
-        {textureLoading && (
-          <Chip
-            size="small"
-            icon={<CircularProgress size={12} sx={{ color: '#0284c7' }} />}
-            label="Loading fabric texture..."
-            sx={{ bgcolor: 'rgba(255,255,255,0.92)', fontSize: 11, fontWeight: 600 }}
-          />
-        )}
+        {/* Ambient Mood Status Badge */}
+        <Box
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.75,
+            bgcolor: isLampOn ? 'rgba(245, 158, 11, 0.16)' : 'rgba(255, 255, 255, 0.92)',
+            backdropFilter: 'blur(8px)',
+            border: isLampOn ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid #e2e8f0',
+            borderRadius: '20px',
+            px: 1.25,
+            py: 0.4,
+            pointerEvents: 'auto',
+            transition: 'all 0.3s ease',
+          }}
+        >
+          <Typography
+            sx={{
+              fontSize: 10.5,
+              fontWeight: 700,
+              color: isLampOn ? '#fbbf24' : '#64748b',
+              letterSpacing: '0.02em',
+            }}
+          >
+            {isLampOn ? '🌙 Warm Light ON' : '☀️ Daylight Studio'}
+          </Typography>
+        </Box>
       </Box>
 
       {/* Floating Bottom Toolbar Controls */}
@@ -1272,25 +1363,27 @@ export default function Lampshade3DViewer({
           display: 'flex',
           alignItems: 'center',
           gap: 0.75,
-          bgcolor: 'rgba(255, 255, 255, 0.94)',
+          bgcolor: isLampOn ? 'rgba(20, 24, 36, 0.90)' : 'rgba(255, 255, 255, 0.94)',
           backdropFilter: 'blur(10px)',
-          border: '1px solid #e2e8f0',
+          border: isLampOn ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #e2e8f0',
           borderRadius: '30px',
           p: 0.5,
-          boxShadow: '0 4px 16px rgba(15, 23, 42, 0.1)',
+          boxShadow: isLampOn ? '0 4px 20px rgba(0, 0, 0, 0.35)' : '0 4px 16px rgba(15, 23, 42, 0.1)',
           zIndex: 2,
+          transition: 'all 0.3s ease',
         }}
       >
         {/* Lamp Light Toggle Button */}
-        <Tooltip title={isLampOn ? 'Turn Off Light Bulb' : 'Turn On Warm Lamp Glow'}>
+        <Tooltip title={isLampOn ? 'Switch to Daylight Studio' : 'Turn On Warm Incandescent Glow'}>
           <IconButton
             size="small"
             onClick={handleToggleLight}
             sx={{
-              bgcolor: isLampOn ? '#fef3c7' : 'transparent',
-              color: isLampOn ? '#d97706' : '#64748b',
-              transition: 'all 0.15s ease',
-              '&:hover': { bgcolor: isLampOn ? '#fde68a' : '#f1f5f9' },
+              bgcolor: isLampOn ? '#f59e0b' : 'transparent',
+              color: isLampOn ? '#ffffff' : '#64748b',
+              boxShadow: isLampOn ? '0 0 10px rgba(245, 158, 11, 0.5)' : 'none',
+              transition: 'all 0.2s ease',
+              '&:hover': { bgcolor: isLampOn ? '#d97706' : '#f1f5f9' },
             }}
           >
             {isLampOn ? <LightbulbIcon sx={{ fontSize: 18 }} /> : <LightbulbOutlinedIcon sx={{ fontSize: 18 }} />}
@@ -1311,9 +1404,9 @@ export default function Lampshade3DViewer({
               requestFrame();
             }}
             sx={{
-              color: isRotating ? '#0284c7' : '#64748b',
-              bgcolor: isRotating ? '#f0f9ff' : 'transparent',
-              '&:hover': { bgcolor: isRotating ? '#e0f2fe' : '#f1f5f9' },
+              color: isRotating ? (isLampOn ? '#38bdf8' : '#0284c7') : (isLampOn ? '#94a3b8' : '#64748b'),
+              bgcolor: isRotating ? (isLampOn ? 'rgba(56, 189, 248, 0.18)' : '#f0f9ff') : 'transparent',
+              '&:hover': { bgcolor: isRotating ? (isLampOn ? 'rgba(56, 189, 248, 0.28)' : '#e0f2fe') : (isLampOn ? 'rgba(255,255,255,0.1)' : '#f1f5f9') },
             }}
           >
             {isRotating ? <PauseIcon sx={{ fontSize: 18 }} /> : <PlayArrowIcon sx={{ fontSize: 18 }} />}
@@ -1325,7 +1418,10 @@ export default function Lampshade3DViewer({
           <IconButton
             size="small"
             onClick={handleResetCamera}
-            sx={{ color: '#64748b', '&:hover': { bgcolor: '#f1f5f9', color: '#0f172a' } }}
+            sx={{
+              color: isLampOn ? '#94a3b8' : '#64748b',
+              '&:hover': { bgcolor: isLampOn ? 'rgba(255,255,255,0.1)' : '#f1f5f9', color: isLampOn ? '#f8fafc' : '#0f172a' },
+            }}
           >
             <RestartAltIcon sx={{ fontSize: 18 }} />
           </IconButton>
@@ -1340,11 +1436,12 @@ export default function Lampshade3DViewer({
           left: 14,
           fontSize: 10,
           fontWeight: 600,
-          color: '#94a3b8',
+          color: isLampOn ? '#64748b' : '#94a3b8',
           textTransform: 'uppercase',
           letterSpacing: '0.04em',
           pointerEvents: 'none',
           display: { xs: 'none', sm: 'block' },
+          transition: 'color 0.3s ease',
         }}
       >
         Drag to rotate · Scroll to zoom

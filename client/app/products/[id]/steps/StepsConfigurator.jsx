@@ -19,6 +19,7 @@ import StepImageCards from './StepImageCards';
 import StepSwatchGrid from './StepSwatchGrid';
 import StepFinishing from './StepFinishing';
 import StepReview from './StepReview';
+import MobileStickySummaryBar from './MobileStickySummaryBar';
 
 // Validate a single step's selections; returns { [fieldName]: errorMsg }
 function validateStep(step, stepSel = {}) {
@@ -840,6 +841,25 @@ export default function StepsConfigurator({
           Back to Edit
         </Button>
       )}
+
+      {/* Mobile Sticky Summary Bar */}
+      <MobileStickySummaryBar
+        product={product}
+        stepsConfig={configSteps}
+        stepSelections={stepSelections}
+        currentStep={currentStep}
+        totalSteps={totalSteps}
+        isReviewStep={isReviewStep}
+        progress={progress}
+        priceResult={priceResult}
+        gallery={gallery}
+        activeImage={activeImage}
+        onContinue={handleContinue}
+        onBack={handleBack}
+        onGoToStep={handleGoToStep}
+        onAddToCart={handleAddToCart}
+        isSubmitting={isSubmitting}
+      />
     </Box>
   );
 }

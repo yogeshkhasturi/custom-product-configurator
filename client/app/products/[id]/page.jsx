@@ -306,7 +306,7 @@ function ProductDetail() {
   // ── Configurator Display Mode ──
   if (isStepsMode) {
     return (
-      <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', color: '#0f172a' }}>
+      <Box sx={{ bgcolor: '#f8fafc', minHeight: '100vh', color: '#0f172a', pb: { xs: 11, lg: 4 } }}>
         <Box sx={{ maxWidth: 1440, mx: 'auto', px: { xs: 1.5, sm: 2.5, md: 3 }, py: { xs: 2, sm: 2.5, md: 3 } }}>
           <Box
             sx={{
