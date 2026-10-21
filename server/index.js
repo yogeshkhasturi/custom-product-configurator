@@ -145,7 +145,7 @@ app.use((err, req, res, next) => {
 });
 
 // --------------------------------------------------
-// MongoDB + Server startup
+// MongoDB + Server startup (Atlas / Local)
 // --------------------------------------------------
 const MONGO_URI = process.env.MONGO_URI;
 
