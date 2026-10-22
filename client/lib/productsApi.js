@@ -1,10 +1,25 @@
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const dynamicBaseQuery = async (args, api, extraOptions) => {
+  const isBrowser = typeof window !== 'undefined';
+  const baseUrl = isBrowser
+    ? '/api'
+    : (process.env.INTERNAL_API_URL || 'http://127.0.0.1:5000/api');
+
+  const rawBaseQuery = fetchBaseQuery({
+    baseUrl,
+    prepareHeaders: (headers) => {
+      headers.set('ngrok-skip-browser-warning', 'true');
+      return headers;
+    },
+  });
+
+  return rawBaseQuery(args, api, extraOptions);
+};
 
 export const productsApiSlice = createApi({
   reducerPath: 'productsApi',
-  baseQuery: fetchBaseQuery({ baseUrl: BASE }),
+  baseQuery: dynamicBaseQuery,
   tagTypes: ['Product'],
   endpoints: (builder) => ({
     getProducts: builder.query({

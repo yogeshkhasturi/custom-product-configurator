@@ -2,7 +2,12 @@
 
 const STORAGE_KEY = 'fenchel_projects';
 const CART_KEY = 'cart';
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api') + '/projects';
+const API_BASE = {
+  toString: () => {
+    if (typeof window !== 'undefined') return '/api/projects';
+    return process.env.BACKEND_URL ? `${process.env.BACKEND_URL}/api/projects` : 'http://127.0.0.1:5000/api/projects';
+  },
+};
 
 function getLocalProjects() {
   if (typeof window === 'undefined') return [];

@@ -6,6 +6,11 @@ import IconButton from '@mui/material/IconButton';
 import Tooltip from '@mui/material/Tooltip';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
+import Button from '@mui/material/Button';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import Alert from '@mui/material/Alert';
 
 // MUI Icons
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
@@ -17,11 +22,28 @@ import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import OpenInFullIcon from '@mui/icons-material/OpenInFull';
 import CloseFullscreenIcon from '@mui/icons-material/CloseFullscreen';
+import ViewInArIcon from '@mui/icons-material/ViewInAr';
+import QrCode2Icon from '@mui/icons-material/QrCode2';
+import CloseIcon from '@mui/icons-material/Close';
+import SmartphoneIcon from '@mui/icons-material/Smartphone';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import DownloadIcon from '@mui/icons-material/Download';
+import NavigationIcon from '@mui/icons-material/Navigation';
+import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { resolveImageUrl } from '../../../lib/pricingUtils';
+import {
+  getDeviceInfo,
+  prepareARScene,
+  exportToGLB,
+  exportToUSDZ,
+  uploadARModelToServer,
+  launchIOSQuickLook,
+  launchAndroidSceneViewer,
+} from '../../../lib/arUtils';
 // Soft ambient occlusion contact shadow directly beneath the lampshade base
 function createContactShadowTexture() {
   if (typeof document === 'undefined') return null;
@@ -485,6 +507,17 @@ export default function Lampshade3DViewer({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [textureLoading, setTextureLoading] = useState(false);
 
+  // AR Try-On State
+  const [arModalOpen, setArModalOpen] = useState(false);
+  const [arLoading, setArLoading] = useState(false);
+  const [arStatusText, setArStatusText] = useState('');
+  const [arError, setArError] = useState(null);
+  const [deviceInfo, setDeviceInfo] = useState({ isMobile: false, isIOS: false, isAndroid: false });
+
+  useEffect(() => {
+    setDeviceInfo(getDeviceInfo());
+  }, []);
+
   // Keep isRotatingRef in sync with React state
   useEffect(() => {
     isRotatingRef.current = isRotating;
@@ -497,6 +530,126 @@ export default function Lampshade3DViewer({
   const numTop = Math.max(1, parseFloat(topDiameter) || 8);
   const numBottom = Math.max(1, parseFloat(bottomDiameter) || 14);
   const numHeight = Math.max(1, parseFloat(height) || 10);
+
+  // ── OFF-SCREEN DIRECTIONAL PRODUCT INDICATOR ──
+  const [isOffScreen, setIsOffScreen] = useState(false);
+  const isOffScreenRef = useRef(false);
+  const offScreenIndicatorRef = useRef(null);
+  const offScreenPosRef = useRef({ x: 0, y: 0, angleDeg: 0 });
+
+  const updateOffScreenIndicator = useCallback(() => {
+    const camera = cameraRef.current;
+    const group = shadeGroupRef.current;
+    const container = mountRef.current;
+    if (!camera || !group || !container) return;
+
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    if (width <= 0 || height <= 0) return;
+
+    const box = new THREE.Box3().setFromObject(group);
+    if (box.isEmpty()) return;
+    const sphere = box.getBoundingSphere(new THREE.Sphere());
+
+    // 1. Frustum intersection check
+    const projScreenMatrix = new THREE.Matrix4();
+    projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    const frustum = new THREE.Frustum();
+    frustum.setFromProjectionMatrix(projScreenMatrix);
+
+    const isInFrustum = frustum.intersectsSphere(sphere);
+
+    // 2. Project center to NDC
+    const centerWorld = sphere.center.clone();
+    const cameraDir = new THREE.Vector3();
+    camera.getWorldDirection(cameraDir);
+    const toCenter = centerWorld.clone().sub(camera.position);
+    const isBehind = cameraDir.dot(toCenter) <= 0;
+
+    const ndc = centerWorld.clone().project(camera);
+
+    // Visible if inside frustum, in front of camera, and within 85% of screen
+    const isVisible = isInFrustum && !isBehind && Math.abs(ndc.x) <= 0.85 && Math.abs(ndc.y) <= 0.85;
+
+    if (isVisible) {
+      if (isOffScreenRef.current) {
+        isOffScreenRef.current = false;
+        setIsOffScreen(false);
+      }
+      return;
+    }
+
+    if (!isOffScreenRef.current) {
+      isOffScreenRef.current = true;
+      setIsOffScreen(true);
+    }
+
+    // Direction vector from screen center to off-screen product
+    let dx = ndc.x;
+    let dy = -ndc.y; // CSS top is inverted from NDC Y
+
+    if (isBehind) {
+      dx = -dx;
+      dy = -dy;
+    }
+
+    const len = Math.hypot(dx, dy);
+    if (len < 0.0001) {
+      dx = 0;
+      dy = -1;
+    } else {
+      dx /= len;
+      dy /= len;
+    }
+
+    // Angle in degrees where 0 deg = pointing right
+    const angleRad = Math.atan2(dy, dx);
+    const angleDeg = (angleRad * 180) / Math.PI;
+
+    // Clamp indicator to perimeter margin of the viewer
+    const padX = 72;
+    const padY = 56;
+    const halfW = Math.max(20, width / 2 - padX);
+    const halfH = Math.max(20, height / 2 - padY);
+
+    let edgeX = 0;
+    let edgeY = 0;
+
+    if (Math.abs(dx) * halfH > Math.abs(dy) * halfW) {
+      edgeX = Math.sign(dx) * halfW;
+      edgeY = (dy / Math.abs(dx)) * halfW;
+    } else {
+      edgeY = Math.sign(dy) * halfH;
+      edgeX = (dx / Math.abs(dy)) * halfH;
+    }
+
+    const screenX = width / 2 + edgeX;
+    const screenY = height / 2 + edgeY;
+
+    offScreenPosRef.current = { x: screenX, y: screenY, angleDeg };
+
+    if (offScreenIndicatorRef.current) {
+      offScreenIndicatorRef.current.style.left = `${screenX}px`;
+      offScreenIndicatorRef.current.style.top = `${screenY}px`;
+      const arrowEl = offScreenIndicatorRef.current.querySelector('.indicator-arrow');
+      if (arrowEl) {
+        arrowEl.style.transform = `rotate(${angleDeg + 90}deg)`;
+      }
+    }
+  }, []);
+
+  // Update DOM position immediately when indicator appears
+  useEffect(() => {
+    if (isOffScreen && offScreenIndicatorRef.current) {
+      const { x, y, angleDeg } = offScreenPosRef.current;
+      offScreenIndicatorRef.current.style.left = `${x}px`;
+      offScreenIndicatorRef.current.style.top = `${y}px`;
+      const arrowEl = offScreenIndicatorRef.current.querySelector('.indicator-arrow');
+      if (arrowEl) {
+        arrowEl.style.transform = `rotate(${angleDeg + 90}deg)`;
+      }
+    }
+  }, [isOffScreen]);
 
   // Trigger render frame on demand
   const requestFrame = useCallback(() => {
@@ -548,7 +701,11 @@ export default function Lampshade3DViewer({
     controls.maxPolarAngle = Math.PI * 0.88; // Don't flip underneath table
     controls.minDistance = 3;
     controls.maxDistance = 50;
-    controls.addEventListener('change', requestFrame);
+    const handleControlsChange = () => {
+      requestFrame();
+      updateOffScreenIndicator();
+    };
+    controls.addEventListener('change', handleControlsChange);
     // Pause auto-rotation when user interacts with shade so it stays where placed
     controls.addEventListener('start', () => {
       isRotatingRef.current = false;
@@ -602,6 +759,7 @@ export default function Lampshade3DViewer({
           camera.position.set(x, y, z);
           controls.update();
           requestFrame();
+          updateOffScreenIndicator();
         }
       };
     }
@@ -621,6 +779,8 @@ export default function Lampshade3DViewer({
         needsRenderRef.current = true;
       }
 
+      updateOffScreenIndicator();
+
       if (needsRenderRef.current && rendererRef.current && sceneRef.current && cameraRef.current) {
         rendererRef.current.render(sceneRef.current, cameraRef.current);
         needsRenderRef.current = false;
@@ -637,6 +797,7 @@ export default function Lampshade3DViewer({
           cameraRef.current.updateProjectionMatrix();
           rendererRef.current.setSize(newW, newH);
           requestFrame();
+          updateOffScreenIndicator();
         }
       }
     });
@@ -1251,7 +1412,95 @@ export default function Lampshade3DViewer({
     if (group) group.rotation.set(0, 0, 0);
     prevRadiusRef.current = sphere.radius;
     requestFrame();
+    updateOffScreenIndicator();
   };
+
+  // Mobile AR URL for QR Code
+  const getMobileARUrl = () => {
+    if (typeof window === 'undefined') return '';
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set('ar', '1');
+      return u.toString();
+    } catch (e) {
+      return '';
+    }
+  };
+
+  // Launch Augmented Reality Try-On Session
+  const handleLaunchAR = async (forceMobile = false) => {
+    const dev = getDeviceInfo();
+
+    // If on Desktop and not forced -> open QR Code dialog
+    if (!dev.isMobile && !forceMobile) {
+      setArModalOpen(true);
+      return;
+    }
+
+    const group = shadeGroupRef.current;
+    if (!group) {
+      setArError('3D model is still initializing. Please wait a moment.');
+      return;
+    }
+
+    try {
+      setArLoading(true);
+      setArError(null);
+      setArStatusText('Generating 1:1 real-scale 3D model...');
+
+      // 1. Prepare clean AR scene scaled to true meters (1" = 0.0254m, bottom rim at y = 0)
+      const arGroup = prepareARScene(group, numHeight);
+
+      if (dev.isIOS) {
+        setArStatusText('Preparing Apple AR Quick Look...');
+        const usdzBlob = await exportToUSDZ(arGroup);
+        const blobUrl = URL.createObjectURL(usdzBlob);
+        setArStatusText('Opening iOS Camera...');
+        launchIOSQuickLook(blobUrl);
+      } else if (dev.isAndroid) {
+        setArStatusText('Packaging model for Google Scene Viewer...');
+        const glbBlob = await exportToGLB(arGroup);
+        setArStatusText('Connecting to AR Camera...');
+        const uploadResult = await uploadARModelToServer(glbBlob, 'glb');
+        setArStatusText('Opening Camera...');
+        launchAndroidSceneViewer(
+          uploadResult.fullUrl,
+          `${numTop}"×${numBottom}"×${numHeight}" Custom Lampshade`
+        );
+      } else {
+        // Desktop test mode: directly download the GLB model
+        setArStatusText('Downloading 3D model (.glb)...');
+        const glbBlob = await exportToGLB(arGroup);
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(glbBlob);
+        link.download = `lampshade-${numTop}x${numBottom}x${numHeight}.glb`;
+        link.click();
+        setArStatusText('Downloaded!');
+      }
+    } catch (err) {
+      console.error('AR Launch Error:', err);
+      setArError(err.message || 'Unable to start camera AR session.');
+    } finally {
+      setTimeout(() => {
+        setArLoading(false);
+      }, 1800);
+    }
+  };
+
+  // Auto-launch AR when user opens page via mobile QR code (?ar=1)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('ar') === '1' || params.get('ar') === 'true') {
+      const dev = getDeviceInfo();
+      if (dev.isMobile) {
+        const timer = setTimeout(() => {
+          handleLaunchAR(true);
+        }, 1500);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, []);
 
   return (
     <Box
@@ -1324,32 +1573,62 @@ export default function Lampshade3DViewer({
           </Typography>
         </Box>
 
-        {/* Ambient Mood Status Badge */}
-        <Box
-          sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 0.75,
-            bgcolor: isLampOn ? 'rgba(245, 158, 11, 0.16)' : 'rgba(255, 255, 255, 0.92)',
-            backdropFilter: 'blur(8px)',
-            border: isLampOn ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid #e2e8f0',
-            borderRadius: '20px',
-            px: 1.25,
-            py: 0.4,
-            pointerEvents: 'auto',
-            transition: 'all 0.3s ease',
-          }}
-        >
-          <Typography
+        {/* Ambient Mood Status Badge & AR View Button */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box
+            onClick={() => handleLaunchAR(false)}
             sx={{
-              fontSize: 10.5,
-              fontWeight: 700,
-              color: isLampOn ? '#fbbf24' : '#64748b',
-              letterSpacing: '0.02em',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.6,
+              bgcolor: '#0284c7',
+              color: '#ffffff',
+              borderRadius: '20px',
+              px: 1.3,
+              py: 0.45,
+              cursor: 'pointer',
+              boxShadow: '0 2px 8px rgba(2, 132, 199, 0.4)',
+              pointerEvents: 'auto',
+              transition: 'all 0.2s ease',
+              '&:hover': { bgcolor: '#0369a1', transform: 'scale(1.02)' },
             }}
           >
-            {isLampOn ? '🌙 Warm Light ON' : '☀️ Daylight Studio'}
-          </Typography>
+            {arLoading ? (
+              <CircularProgress size={13} sx={{ color: '#fff' }} />
+            ) : (
+              <ViewInArIcon sx={{ fontSize: 15 }} />
+            )}
+            <Typography sx={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.02em' }}>
+              {arLoading ? 'Loading AR...' : 'Try in Room'}
+            </Typography>
+          </Box>
+
+          <Box
+            sx={{
+              display: { xs: 'none', sm: 'inline-flex' },
+              alignItems: 'center',
+              gap: 0.75,
+              bgcolor: isLampOn ? 'rgba(245, 158, 11, 0.16)' : 'rgba(255, 255, 255, 0.92)',
+              backdropFilter: 'blur(8px)',
+              border: isLampOn ? '1px solid rgba(245, 158, 11, 0.45)' : '1px solid #e2e8f0',
+              borderRadius: '20px',
+              px: 1.25,
+              py: 0.4,
+              pointerEvents: 'auto',
+              transition: 'all 0.3s ease',
+            }}
+          >
+            <Typography
+              sx={{
+                fontSize: 10.5,
+                fontWeight: 700,
+                color: isLampOn ? '#fbbf24' : '#64748b',
+                letterSpacing: '0.02em',
+              }}
+            >
+              {isLampOn ? '🌙 Warm Light ON' : '☀️ Daylight Studio'}
+            </Typography>
+          </Box>
         </Box>
       </Box>
 
@@ -1362,17 +1641,51 @@ export default function Lampshade3DViewer({
           transform: 'translateX(-50%)',
           display: 'flex',
           alignItems: 'center',
-          gap: 0.75,
-          bgcolor: isLampOn ? 'rgba(20, 24, 36, 0.90)' : 'rgba(255, 255, 255, 0.94)',
+          gap: { xs: 0.6, sm: 0.75 },
+          bgcolor: isLampOn ? 'rgba(20, 24, 36, 0.92)' : 'rgba(255, 255, 255, 0.95)',
           backdropFilter: 'blur(10px)',
           border: isLampOn ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid #e2e8f0',
           borderRadius: '30px',
           p: 0.5,
           boxShadow: isLampOn ? '0 4px 20px rgba(0, 0, 0, 0.35)' : '0 4px 16px rgba(15, 23, 42, 0.1)',
           zIndex: 2,
+          maxWidth: 'calc(100% - 24px)',
           transition: 'all 0.3s ease',
         }}
       >
+        {/* Prominent AR Try in Your Room Button */}
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => handleLaunchAR(false)}
+          disabled={arLoading}
+          startIcon={
+            arLoading ? (
+              <CircularProgress size={14} sx={{ color: '#fff' }} />
+            ) : (
+              <ViewInArIcon sx={{ fontSize: 17 }} />
+            )
+          }
+          sx={{
+            bgcolor: '#0284c7',
+            color: '#ffffff',
+            fontWeight: 700,
+            fontSize: { xs: 11, sm: 12 },
+            textTransform: 'none',
+            borderRadius: '20px',
+            px: { xs: 1.4, sm: 1.8 },
+            py: 0.45,
+            whiteSpace: 'nowrap',
+            boxShadow: '0 2px 10px rgba(2, 132, 199, 0.45)',
+            '&:hover': {
+              bgcolor: '#0369a1',
+              boxShadow: '0 4px 14px rgba(2, 132, 199, 0.6)',
+            },
+          }}
+        >
+          {arLoading ? (arStatusText || 'Preparing...') : 'Try in Your Room'}
+        </Button>
+
         {/* Lamp Light Toggle Button */}
         <Tooltip title={isLampOn ? 'Switch to Daylight Studio' : 'Turn On Warm Incandescent Glow'}>
           <IconButton
@@ -1446,6 +1759,225 @@ export default function Lampshade3DViewer({
       >
         Drag to rotate · Scroll to zoom
       </Typography>
+
+      {/* ── OFF-SCREEN DIRECTIONAL PRODUCT INDICATOR ── */}
+      {isOffScreen && (
+        <Tooltip title="Product is off-screen · Click to re-center" placement="top" arrow>
+          <Box
+            ref={offScreenIndicatorRef}
+            onClick={handleResetCamera}
+            sx={{
+              position: 'absolute',
+              transform: 'translate(-50%, -50%)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.9,
+              bgcolor: isLampOn ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.98)',
+              color: isLampOn ? '#f8fafc' : '#0f172a',
+              backdropFilter: 'blur(12px)',
+              border: '2px solid #0284c7',
+              borderRadius: '24px',
+              py: 0.6,
+              px: 1.4,
+              cursor: 'pointer',
+              boxShadow: isLampOn
+                ? '0 0 20px rgba(2, 132, 199, 0.6), 0 8px 24px rgba(0,0,0,0.5)'
+                : '0 0 20px rgba(2, 132, 199, 0.4), 0 8px 24px rgba(15, 23, 42, 0.15)',
+              zIndex: 10,
+              userSelect: 'none',
+              pointerEvents: 'auto',
+              animation: 'pulseGlow 2s infinite ease-in-out',
+              transition: 'transform 0.15s ease, background-color 0.2s ease',
+              '&:hover': {
+                transform: 'translate(-50%, -50%) scale(1.08)',
+                bgcolor: isLampOn ? '#1e293b' : '#ffffff',
+                boxShadow: '0 0 28px rgba(2, 132, 199, 0.8), 0 10px 28px rgba(0,0,0,0.3)',
+              },
+              '@keyframes pulseGlow': {
+                '0%, 100%': {
+                  boxShadow: '0 0 14px rgba(2, 132, 199, 0.4), 0 4px 16px rgba(0,0,0,0.2)',
+                },
+                '50%': {
+                  boxShadow: '0 0 26px rgba(2, 132, 199, 0.85), 0 6px 20px rgba(2, 132, 199, 0.4)',
+                },
+              },
+            }}
+          >
+            <Box
+              className="indicator-arrow"
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#0284c7',
+                transition: 'transform 0.08s linear',
+              }}
+            >
+              <NavigationIcon sx={{ fontSize: 16 }} />
+            </Box>
+            <Typography
+              sx={{
+                fontSize: 11.5,
+                fontWeight: 700,
+                letterSpacing: '0.01em',
+                whiteSpace: 'nowrap',
+                color: isLampOn ? '#f8fafc' : '#0f172a',
+              }}
+            >
+              Locate Product
+            </Typography>
+            <CenterFocusStrongIcon sx={{ fontSize: 15, color: '#0284c7' }} />
+          </Box>
+        </Tooltip>
+      )}
+
+      {/* ── DESKTOP AR TRY-ON QR CODE MODAL ── */}
+      <Dialog
+        open={arModalOpen}
+        onClose={() => setArModalOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: '20px',
+            p: 1,
+            bgcolor: '#ffffff',
+            boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
+          },
+        }}
+      >
+        <DialogTitle sx={{ p: 2, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+            <Box
+              sx={{
+                width: 36,
+                height: 36,
+                borderRadius: '10px',
+                bgcolor: '#e0f2fe',
+                color: '#0284c7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <ViewInArIcon sx={{ fontSize: 22 }} />
+            </Box>
+            <Box>
+              <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#0f172a', lineHeight: 1.2 }}>
+                Try in Your Room
+              </Typography>
+              <Typography sx={{ fontSize: 11, color: '#64748b' }}>
+                Instant Augmented Reality on Mobile
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton size="small" onClick={() => setArModalOpen(false)} sx={{ color: '#94a3b8' }}>
+            <CloseIcon sx={{ fontSize: 18 }} />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ p: 2, pt: 1 }}>
+          {/* QR Code Container */}
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '16px',
+              p: 2,
+              mb: 2,
+            }}
+          >
+            <Box
+              sx={{
+                width: 190,
+                height: 190,
+                bgcolor: '#ffffff',
+                borderRadius: '12px',
+                p: 1,
+                border: '1px solid #e2e8f0',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mb: 1.5,
+              }}
+            >
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=190x190&data=${encodeURIComponent(getMobileARUrl())}`}
+                alt="Scan to try on phone camera"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
+            </Box>
+
+            <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#0f172a', textAlign: 'center' }}>
+              Scan with your iPhone or Android camera
+            </Typography>
+            <Typography sx={{ fontSize: 11, color: '#64748b', textAlign: 'center', mt: 0.5 }}>
+              Opens your camera and places this exact shade on your table at 1:1 true physical scale.
+            </Typography>
+          </Box>
+
+          {/* Active Custom Spec Card */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              bgcolor: '#f1f5f9',
+              borderRadius: '10px',
+              px: 1.5,
+              py: 1,
+              mb: 2,
+            }}
+          >
+            <Box>
+              <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#1e293b' }}>
+                {numTop}&quot; × {numBottom}&quot; × {numHeight}&quot;
+              </Typography>
+              <Typography sx={{ fontSize: 10.5, color: '#64748b' }}>
+                {coveringName} · {attachmentStyle}
+              </Typography>
+            </Box>
+            <Chip
+              size="small"
+              icon={<CheckCircleOutlineIcon style={{ fontSize: 13, color: '#0284c7' }} />}
+              label="1:1 Real Scale"
+              sx={{ bgcolor: '#e0f2fe', color: '#0284c7', fontSize: 10, fontWeight: 700, height: 22 }}
+            />
+          </Box>
+
+          {/* Direct Download/Test on PC Button */}
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={() => handleLaunchAR(true)}
+            disabled={arLoading}
+            startIcon={arLoading ? <CircularProgress size={16} /> : <DownloadIcon />}
+            sx={{
+              borderRadius: '10px',
+              textTransform: 'none',
+              fontWeight: 700,
+              fontSize: 12,
+              borderColor: '#cbd5e1',
+              color: '#475569',
+              py: 0.8,
+              '&:hover': { borderColor: '#94a3b8', bgcolor: '#f8fafc' },
+            }}
+          >
+            {arLoading ? (arStatusText || 'Exporting 3D Model...') : 'Download 3D AR Model (.glb)'}
+          </Button>
+
+          {arError && (
+            <Alert severity="error" sx={{ mt: 1.5, fontSize: 11.5 }}>
+              {arError}
+            </Alert>
+          )}
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

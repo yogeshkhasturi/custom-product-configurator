@@ -9,7 +9,12 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { resolveImageUrl } from '../../../lib/pricingUtils';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const API_BASE = {
+  toString: () => {
+    if (typeof window !== 'undefined') return '/api';
+    return process.env.BACKEND_URL ? `${process.env.BACKEND_URL}/api` : 'http://127.0.0.1:5000/api';
+  },
+};
 
 async function uploadFiles(files) {
   const form = new FormData();

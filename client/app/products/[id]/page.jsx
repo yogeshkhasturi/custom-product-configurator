@@ -361,12 +361,40 @@ function ProductDetail() {
                   </Button>
                 </Box>
 
-                {viewMode === '3d' && (
-                  <Chip
+                {viewMode === '3d' ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Chip
+                      size="small"
+                      label="360° Real-time"
+                      sx={{ bgcolor: '#f0f9ff', color: '#0284c7', fontWeight: 700, fontSize: 11, border: '1px solid #bae6fd' }}
+                    />
+                    <Chip
+                      size="small"
+                      icon={<ViewInArIcon style={{ fontSize: 14, color: '#0284c7' }} />}
+                      label="AR Camera Ready"
+                      sx={{ bgcolor: '#f0f9ff', color: '#0369a1', fontWeight: 700, fontSize: 11, border: '1px solid #bae6fd' }}
+                    />
+                  </Box>
+                ) : (
+                  <Button
                     size="small"
-                    label="360° Real-time"
-                    sx={{ bgcolor: '#f0f9ff', color: '#0284c7', fontWeight: 700, fontSize: 11, border: '1px solid #bae6fd' }}
-                  />
+                    onClick={() => setViewMode('3d')}
+                    startIcon={<ViewInArIcon sx={{ fontSize: 15, color: '#0284c7' }} />}
+                    sx={{
+                      borderRadius: '8px',
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      fontSize: 11.5,
+                      color: '#0284c7',
+                      bgcolor: '#f0f9ff',
+                      border: '1px solid #bae6fd',
+                      px: 1.25,
+                      py: 0.3,
+                      '&:hover': { bgcolor: '#e0f2fe' },
+                    }}
+                  >
+                    Try in Room (AR)
+                  </Button>
                 )}
               </Box>
 
@@ -612,12 +640,40 @@ function ProductDetail() {
                 </Button>
               </Box>
 
-              {viewMode === '3d' && (
-                <Chip
+              {viewMode === '3d' ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip
+                    size="small"
+                    label="360° Real-time"
+                    sx={{ bgcolor: '#f0f9ff', color: '#0284c7', fontWeight: 700, fontSize: 11, border: '1px solid #bae6fd' }}
+                  />
+                  <Chip
+                    size="small"
+                    icon={<ViewInArIcon style={{ fontSize: 14, color: '#0284c7' }} />}
+                    label="AR Camera Ready"
+                    sx={{ bgcolor: '#f0f9ff', color: '#0369a1', fontWeight: 700, fontSize: 11, border: '1px solid #bae6fd' }}
+                  />
+                </Box>
+              ) : (
+                <Button
                   size="small"
-                  label="360° Real-time"
-                  sx={{ bgcolor: '#f0f9ff', color: '#0284c7', fontWeight: 700, fontSize: 11, border: '1px solid #bae6fd' }}
-                />
+                  onClick={() => setViewMode('3d')}
+                  startIcon={<ViewInArIcon sx={{ fontSize: 15, color: '#0284c7' }} />}
+                  sx={{
+                    borderRadius: '8px',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: 11.5,
+                    color: '#0284c7',
+                    bgcolor: '#f0f9ff',
+                    border: '1px solid #bae6fd',
+                    px: 1.25,
+                    py: 0.3,
+                    '&:hover': { bgcolor: '#e0f2fe' },
+                  }}
+                >
+                  Try in Room (AR)
+                </Button>
               )}
             </Box>
 

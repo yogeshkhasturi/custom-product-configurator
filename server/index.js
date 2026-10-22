@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const http = require("http");
 const cors = require("cors");
 const path = require("path");
 const mongoose = require("mongoose");
@@ -8,18 +9,19 @@ const productRoutes = require("./routes/productRoutes");
 const projectRoutes = require("./routes/projectRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const fixImagesRoute = require("./routes/fixImagesRoute");
+const arRoutes = require("./routes/arRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV?.trim().toLowerCase() === "production";
 
-// --------------------------------------------------
-// Next.js configuration (Production only)
-// --------------------------------------------------
+const serveFrontend = isProduction || process.env.SERVE_FRONTEND === "true";
+
 let nextApp = null;
 let nextHandle = null;
+let upgradeHandler = null;
 
-if (isProduction) {
+if (serveFrontend) {
   let next;
   try {
     next = require("next");
@@ -28,16 +30,17 @@ if (isProduction) {
       next = require(path.join(__dirname, "../client/node_modules/next"));
     } catch (e) {
       console.error("Failed to load Next.js module:", e.message);
-      process.exit(1);
     }
   }
 
-  nextApp = next({
-    dev: false,
-    dir: path.join(__dirname, "../client"),
-  });
+  if (next) {
+    nextApp = next({
+      dev: !isProduction,
+      dir: path.join(__dirname, "../client"),
+    });
 
-  nextHandle = nextApp.getRequestHandler();
+    nextHandle = nextApp.getRequestHandler();
+  }
 }
 
 // --------------------------------------------------
@@ -75,6 +78,7 @@ app.use("/api/products", productRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/fix-images", fixImagesRoute);
+app.use("/api/ar", arRoutes);
 
 // --------------------------------------------------
 // Health check
@@ -119,11 +123,25 @@ app.use("/api", (req, res) => {
 //
 // In development, Next runs independently (e.g. on port 3000).
 // --------------------------------------------------
-if (isProduction && nextHandle) {
+if (nextHandle) {
   app.all("*", (req, res) => {
     return nextHandle(req, res);
   });
 } else {
+  // If Next.js is running separately in development (e.g. port 3000),
+  // provide a clear root status response instead of 404
+  app.get("/", (req, res) => {
+    res.json({
+      success: true,
+      service: "Fenchel Shades API Backend",
+      port: PORT,
+      frontendUrl: "http://localhost:3000",
+      api: `http://localhost:${PORT}/api`,
+      message:
+        "The backend server is running. The Next.js frontend runs on http://localhost:3000. For mobile testing or AR preview with ngrok, tunnel port 3000 ('ngrok http 3000').",
+    });
+  });
+
   app.all("*", (req, res) => {
     res.status(404).json({
       success: false,
@@ -157,21 +175,35 @@ async function startServer() {
     console.error("MongoDB connection error:", err.message);
   }
 
-  if (isProduction && nextApp) {
+  if (nextApp) {
     try {
       await nextApp.prepare();
-      console.log("Next.js production app prepared.");
+      upgradeHandler = nextApp.getUpgradeHandler();
+      console.log(`Next.js (${isProduction ? "production" : "development"}) ready.`);
     } catch (err) {
       console.error("Failed to prepare Next.js:", err);
-      process.exit(1);
     }
   }
 
-  app.listen(PORT, () => {
-    console.log(`Server running in ${isProduction ? "production" : "development"} mode on port ${PORT}`);
-    if (isProduction) {
-      console.log(`Serving Next.js frontend from: ${path.join(__dirname, "../client")}`);
+  const server = http.createServer(app);
+
+  // Attach WebSocket upgrade handler for Next.js HMR live-reload
+  if (upgradeHandler) {
+    server.on("upgrade", (req, socket, head) => {
+      upgradeHandler(req, socket, head);
+    });
+  }
+
+  server.listen(PORT, () => {
+    console.log(`🚀 Backend Server running on http://localhost:${PORT}`);
+    if (nextApp) {
+      console.log(`- Unified Frontend: http://localhost:${PORT}`);
+    } else {
+      console.log(`- Backend API: http://localhost:${PORT}/api`);
+      console.log(`- Next.js Frontend: http://localhost:3000`);
+      console.log(`- ngrok command for mobile/AR: ngrok http 3000`);
     }
+    console.log(`- Uploads: http://localhost:${PORT}/uploads`);
   });
 }
 

@@ -1,10 +1,20 @@
 import axios from 'axios';
 
-const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+const getApiBase = () => {
+  if (typeof window !== 'undefined') return '/api';
+  return process.env.BACKEND_URL ? `${process.env.BACKEND_URL}/api` : 'http://127.0.0.1:5000/api';
+};
 
 const api = axios.create({
-  baseURL: BASE,
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true',
+  },
+});
+
+api.interceptors.request.use((config) => {
+  config.baseURL = getApiBase();
+  return config;
 });
 
 export const productsApi = {
@@ -21,9 +31,11 @@ export const uploadApi = {
   upload: (files) => {
     const form = new FormData();
     files.forEach((f) => form.append('images', f));
-    return axios.post(`${BASE}/upload`, form);
+    return api.post('/upload', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
   },
-  remove: (url) => axios.delete(`${BASE}/upload`, { data: { url } }),
+  remove: (url) => api.delete('/upload', { data: { url } }),
 };
 
 export default api;
