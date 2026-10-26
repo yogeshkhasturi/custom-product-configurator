@@ -30,6 +30,10 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import DownloadIcon from '@mui/icons-material/Download';
 import NavigationIcon from '@mui/icons-material/Navigation';
 import CenterFocusStrongIcon from '@mui/icons-material/CenterFocusStrong';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CheckIcon from '@mui/icons-material/Check';
+import TableBarIcon from '@mui/icons-material/TableBar';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
@@ -512,6 +516,8 @@ export default function Lampshade3DViewer({
   const [arLoading, setArLoading] = useState(false);
   const [arStatusText, setArStatusText] = useState('');
   const [arError, setArError] = useState(null);
+  const [arPlacement, setArPlacement] = useState('shade'); // 'shade' | 'table_lamp'
+  const [copiedLink, setCopiedLink] = useState(false);
   const [deviceInfo, setDeviceInfo] = useState({ isMobile: false, isIOS: false, isAndroid: false });
 
   useEffect(() => {
@@ -1415,20 +1421,40 @@ export default function Lampshade3DViewer({
     updateOffScreenIndicator();
   };
 
-  // Mobile AR URL for QR Code
+  // Mobile AR URL for QR Code & Quick Sharing
   const getMobileARUrl = () => {
     if (typeof window === 'undefined') return '';
     try {
       const u = new URL(window.location.href);
       u.searchParams.set('ar', '1');
+      u.searchParams.set('top', String(numTop));
+      u.searchParams.set('bottom', String(numBottom));
+      u.searchParams.set('height', String(numHeight));
+      if (coveringName) u.searchParams.set('covering', coveringName);
+      if (coveringImageUrl) u.searchParams.set('coveringImg', coveringImageUrl);
+      if (attachmentStyle) u.searchParams.set('attachment', attachmentStyle);
+      if (isLampOn) u.searchParams.set('lamp', '1');
+      if (arPlacement) u.searchParams.set('placement', arPlacement);
       return u.toString();
     } catch (e) {
       return '';
     }
   };
 
+  // Copy mobile link to clipboard with visual confirmation
+  const handleCopyLink = () => {
+    const url = getMobileARUrl();
+    if (!url) return;
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        setCopiedLink(true);
+        setTimeout(() => setCopiedLink(false), 2400);
+      }).catch(() => {});
+    }
+  };
+
   // Launch Augmented Reality Try-On Session
-  const handleLaunchAR = async (forceMobile = false) => {
+  const handleLaunchAR = async (forceMobile = false, overridePlacement = null) => {
     const dev = getDeviceInfo();
 
     // If on Desktop and not forced -> open QR Code dialog
@@ -1443,20 +1469,34 @@ export default function Lampshade3DViewer({
       return;
     }
 
+    const activePlacement = overridePlacement || arPlacement;
+
     try {
       setArLoading(true);
       setArError(null);
       setArStatusText('Generating 1:1 real-scale 3D model...');
 
-      // 1. Prepare clean AR scene scaled to true meters (1" = 0.0254m, bottom rim at y = 0)
-      const arGroup = prepareARScene(group, numHeight);
+      // 1. Prepare clean AR scene scaled to true meters (1" = 0.0254m) with emissive glow & stand
+      const arGroup = prepareARScene(group, {
+        heightInInches: numHeight,
+        isLampOn,
+        arPlacement: activePlacement,
+      });
+
+      const productTitle = `${numTop}"×${numBottom}"×${numHeight}" Custom Lampshade`;
+      const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
 
       if (dev.isIOS) {
         setArStatusText('Preparing Apple AR Quick Look...');
         const usdzBlob = await exportToUSDZ(arGroup);
         const blobUrl = URL.createObjectURL(usdzBlob);
         setArStatusText('Opening iOS Camera...');
-        launchIOSQuickLook(blobUrl);
+        launchIOSQuickLook(blobUrl, {
+          lockScale: true,
+          callToAction: 'Order Custom Shade',
+          checkoutTitle: productTitle,
+          canonicalWebPageURL: currentUrl,
+        });
       } else if (dev.isAndroid) {
         setArStatusText('Packaging model for Google Scene Viewer...');
         const glbBlob = await exportToGLB(arGroup);
@@ -1465,7 +1505,8 @@ export default function Lampshade3DViewer({
         setArStatusText('Opening Camera...');
         launchAndroidSceneViewer(
           uploadResult.fullUrl,
-          `${numTop}"×${numBottom}"×${numHeight}" Custom Lampshade`
+          productTitle,
+          currentUrl
         );
       } else {
         // Desktop test mode: directly download the GLB model
@@ -1473,7 +1514,7 @@ export default function Lampshade3DViewer({
         const glbBlob = await exportToGLB(arGroup);
         const link = document.createElement('a');
         link.href = URL.createObjectURL(glbBlob);
-        link.download = `lampshade-${numTop}x${numBottom}x${numHeight}.glb`;
+        link.download = `lampshade-${numTop}x${numBottom}x${numHeight}-${activePlacement}.glb`;
         link.click();
         setArStatusText('Downloaded!');
       }
@@ -1492,10 +1533,14 @@ export default function Lampshade3DViewer({
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('ar') === '1' || params.get('ar') === 'true') {
+      const placementParam = params.get('placement') || params.get('arPlacement');
+      if (placementParam) {
+        setArPlacement(placementParam);
+      }
       const dev = getDeviceInfo();
       if (dev.isMobile) {
         const timer = setTimeout(() => {
-          handleLaunchAR(true);
+          handleLaunchAR(true, placementParam);
         }, 1500);
         return () => clearTimeout(timer);
       }
@@ -1877,6 +1922,64 @@ export default function Lampshade3DViewer({
         </DialogTitle>
 
         <DialogContent sx={{ p: 2, pt: 1 }}>
+          {/* AR Display Mode Selector: Shade Only vs With Lamp Stand */}
+          <Box sx={{ mb: 1.75 }}>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, color: '#475569', mb: 0.75, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Preview Mode in Room:
+            </Typography>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: 1,
+                bgcolor: '#f1f5f9',
+                p: 0.5,
+                borderRadius: '12px',
+              }}
+            >
+              <Button
+                size="small"
+                onClick={() => setArPlacement('shade')}
+                startIcon={<ViewInArIcon sx={{ fontSize: 16 }} />}
+                sx={{
+                  borderRadius: '9px',
+                  textTransform: 'none',
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  py: 0.6,
+                  bgcolor: arPlacement === 'shade' ? '#ffffff' : 'transparent',
+                  color: arPlacement === 'shade' ? '#0284c7' : '#64748b',
+                  boxShadow: arPlacement === 'shade' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                  '&:hover': {
+                    bgcolor: arPlacement === 'shade' ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                  },
+                }}
+              >
+                Shade Only
+              </Button>
+              <Button
+                size="small"
+                onClick={() => setArPlacement('table_lamp')}
+                startIcon={<TableBarIcon sx={{ fontSize: 16 }} />}
+                sx={{
+                  borderRadius: '9px',
+                  textTransform: 'none',
+                  fontSize: 11.5,
+                  fontWeight: 700,
+                  py: 0.6,
+                  bgcolor: arPlacement === 'table_lamp' ? '#ffffff' : 'transparent',
+                  color: arPlacement === 'table_lamp' ? '#0284c7' : '#64748b',
+                  boxShadow: arPlacement === 'table_lamp' ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+                  '&:hover': {
+                    bgcolor: arPlacement === 'table_lamp' ? '#ffffff' : 'rgba(255,255,255,0.5)',
+                  },
+                }}
+              >
+                With Lamp Base
+              </Button>
+            </Box>
+          </Box>
+
           {/* QR Code Container */}
           <Box
             sx={{
@@ -1888,13 +1991,13 @@ export default function Lampshade3DViewer({
               border: '1px solid #e2e8f0',
               borderRadius: '16px',
               p: 2,
-              mb: 2,
+              mb: 1.75,
             }}
           >
             <Box
               sx={{
-                width: 190,
-                height: 190,
+                width: 185,
+                height: 185,
                 bgcolor: '#ffffff',
                 borderRadius: '12px',
                 p: 1,
@@ -1903,11 +2006,11 @@ export default function Lampshade3DViewer({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                mb: 1.5,
+                mb: 1.25,
               }}
             >
               <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=190x190&data=${encodeURIComponent(getMobileARUrl())}`}
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=185x185&data=${encodeURIComponent(getMobileARUrl())}`}
                 alt="Scan to try on phone camera"
                 style={{ width: '100%', height: '100%', objectFit: 'contain' }}
               />
@@ -1916,8 +2019,8 @@ export default function Lampshade3DViewer({
             <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: '#0f172a', textAlign: 'center' }}>
               Scan with your iPhone or Android camera
             </Typography>
-            <Typography sx={{ fontSize: 11, color: '#64748b', textAlign: 'center', mt: 0.5 }}>
-              Opens your camera and places this exact shade on your table at 1:1 true physical scale.
+            <Typography sx={{ fontSize: 11, color: '#64748b', textAlign: 'center', mt: 0.4 }}>
+              Places this exact custom shade at 1:1 true scale on your tabletop.
             </Typography>
           </Box>
 
@@ -1931,7 +2034,7 @@ export default function Lampshade3DViewer({
               borderRadius: '10px',
               px: 1.5,
               py: 1,
-              mb: 2,
+              mb: 1.75,
             }}
           >
             <Box>
@@ -1939,7 +2042,7 @@ export default function Lampshade3DViewer({
                 {numTop}&quot; × {numBottom}&quot; × {numHeight}&quot;
               </Typography>
               <Typography sx={{ fontSize: 10.5, color: '#64748b' }}>
-                {coveringName} · {attachmentStyle}
+                {coveringName} · {attachmentStyle} {isLampOn ? '· 🌙 Lit' : '· ☀️ Studio'}
               </Typography>
             </Box>
             <Chip
@@ -1950,26 +2053,68 @@ export default function Lampshade3DViewer({
             />
           </Box>
 
-          {/* Direct Download/Test on PC Button */}
-          <Button
-            fullWidth
-            variant="outlined"
-            onClick={() => handleLaunchAR(true)}
-            disabled={arLoading}
-            startIcon={arLoading ? <CircularProgress size={16} /> : <DownloadIcon />}
+          {/* Action Buttons: Copy Link & Download 3D Model */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+            <Button
+              variant="outlined"
+              onClick={handleCopyLink}
+              startIcon={copiedLink ? <CheckIcon sx={{ color: '#10b981', fontSize: 16 }} /> : <ContentCopyIcon sx={{ fontSize: 16 }} />}
+              sx={{
+                borderRadius: '10px',
+                textTransform: 'none',
+                fontWeight: 700,
+                fontSize: 11.5,
+                borderColor: copiedLink ? '#10b981' : '#cbd5e1',
+                color: copiedLink ? '#059669' : '#475569',
+                py: 0.8,
+                bgcolor: copiedLink ? '#ecfdf5' : 'transparent',
+                '&:hover': {
+                  borderColor: copiedLink ? '#10b981' : '#94a3b8',
+                  bgcolor: copiedLink ? '#d1fae5' : '#f8fafc',
+                },
+              }}
+            >
+              {copiedLink ? 'Link Copied!' : 'Copy Mobile Link'}
+            </Button>
+
+            <Button
+              variant="outlined"
+              onClick={() => handleLaunchAR(true)}
+              disabled={arLoading}
+              startIcon={arLoading ? <CircularProgress size={14} /> : <DownloadIcon sx={{ fontSize: 16 }} />}
+              sx={{
+                borderRadius: '10px',
+                textTransform: 'none',
+                fontWeight: 700,
+                fontSize: 11.5,
+                borderColor: '#cbd5e1',
+                color: '#475569',
+                py: 0.8,
+                '&:hover': { borderColor: '#94a3b8', bgcolor: '#f8fafc' },
+              }}
+            >
+              {arLoading ? (arStatusText || 'Exporting...') : 'Download .glb'}
+            </Button>
+          </Box>
+
+          {/* Quick AR Guidance Callout */}
+          <Box
             sx={{
-              borderRadius: '10px',
-              textTransform: 'none',
-              fontWeight: 700,
-              fontSize: 12,
-              borderColor: '#cbd5e1',
-              color: '#475569',
-              py: 0.8,
-              '&:hover': { borderColor: '#94a3b8', bgcolor: '#f8fafc' },
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.8,
+              mt: 1.5,
+              p: 1,
+              bgcolor: '#f0fdf4',
+              borderRadius: '8px',
+              border: '1px solid #bbf7d0',
             }}
           >
-            {arLoading ? (arStatusText || 'Exporting 3D Model...') : 'Download 3D AR Model (.glb)'}
-          </Button>
+            <InfoOutlinedIcon sx={{ fontSize: 15, color: '#16a34a', flexShrink: 0 }} />
+            <Typography sx={{ fontSize: 10.5, color: '#166534', lineHeight: 1.35 }}>
+              Point camera at a well-lit flat table or desk and move slightly to place at 1:1 true scale.
+            </Typography>
+          </Box>
 
           {arError && (
             <Alert severity="error" sx={{ mt: 1.5, fontSize: 11.5 }}>

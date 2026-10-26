@@ -219,6 +219,28 @@ function ProductDetail() {
     let coveringImg = isStepsMode ? liveStepsSelections._coveringImage || '' : '';
     let attachment = 'Washer';
 
+    // Check URL parameters (e.g. from mobile AR QR code scan)
+    if (typeof window !== 'undefined') {
+      try {
+        const sp = new URLSearchParams(window.location.search);
+        const urlTop = parseFloat(sp.get('top'));
+        const urlBottom = parseFloat(sp.get('bottom'));
+        const urlHeight = parseFloat(sp.get('height'));
+        const urlCovering = sp.get('covering');
+        const urlCoveringImg = sp.get('coveringImg');
+        const urlAttachment = sp.get('attachment');
+
+        if (!isNaN(urlTop) && urlTop > 0) top = urlTop;
+        if (!isNaN(urlBottom) && urlBottom > 0) bottom = urlBottom;
+        if (!isNaN(urlHeight) && urlHeight > 0) height = urlHeight;
+        if (urlCovering) covering = urlCovering;
+        if (urlCoveringImg) coveringImg = urlCoveringImg;
+        if (urlAttachment) attachment = urlAttachment;
+      } catch (e) {
+        // ignore
+      }
+    }
+
     for (const [key, val] of Object.entries(source || {})) {
       if (key.startsWith('_')) continue;
       const k = key.toLowerCase();
@@ -241,6 +263,15 @@ function ProductDetail() {
 
     return { top, bottom, height, covering, coveringImg, attachment };
   }, [isStepsMode, liveStepsSelections, userSelections]);
+
+  // Automatically activate 3D mode if opened with ?ar=1 (e.g. mobile QR scan)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const sp = new URLSearchParams(window.location.search);
+    if (sp.get('ar') === '1' || sp.get('ar') === 'true') {
+      setViewMode('3d');
+    }
+  }, []);
 
   // Set page title dynamically
   useEffect(() => {

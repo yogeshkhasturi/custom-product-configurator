@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Photo-to-3D AI Pipeline & Reusable AR Viewer Library</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --bg: #ffffff;
+      --bg-alt: #f8fafc;
+      --border: #e2e8f0;
+      --code-bg: #0f172a;
+      --code-text: #f8fafc;
+    }
+    @media print {
+      .no-print { display: none !important; }
+      body { font-size: 11pt; }
+      pre, code { white-space: pre-wrap !important; }
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      background: var(--bg-alt);
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 48px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    }
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 24px;
+      margin-bottom: 32px;
+    }
+    h1 { font-size: 2rem; color: #0f172a; margin: 0 0 8px 0; }
+    h2 { font-size: 1.4rem; color: #1e293b; margin-top: 36px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+    h3 { font-size: 1.15rem; color: #334155; margin-top: 24px; }
+    p, li { color: var(--text-muted); font-size: 15px; }
+    .badge {
+      display: inline-block;
+      background: #eff6ff;
+      color: var(--primary);
+      padding: 4px 12px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+    }
+    .btn:hover { background: var(--primary-dark); }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-text);
+      padding: 18px;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+    p code, li code {
+      background: #e2e8f0;
+      color: #0f172a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 12px;
+      text-align: left;
+      font-size: 14px;
+    }
+    th { background: #f1f5f9; color: #0f172a; }
+    .callout {
+      background: #f0fdf4;
+      border-left: 4px solid #22c55e;
+      padding: 16px;
+      border-radius: 0 8px 8px 0;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header-bar no-print">
+    <div>
+      <span class="badge">Architecture & Implementation Blueprint</span>
+      <h1>Photo-to-3D AI Pipeline & Reusable AR Viewer</h1>
+      <p style="margin: 0; font-size: 14px; color: #64748b;">Complete Multi-Platform Integration Manual</p>
+    </div>
+    <div>
+      <button class="btn" onclick="window.print()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z"/>
+        </svg>
+        Save / Print as PDF
+      </button>
+    </div>
+  </div>
+
+  <h2>1. Executive Summary</h2>
+  <p>
+    This document outlines the architecture for an end-to-end <strong>Photo-to-3D Model Generation and AR Ecosystem</strong>.
+    It enables any e-commerce or web platform (Shopify, WordPress, Next.js, React, or custom apps) to:
+  </p>
+  <ul>
+    <li>Take a single 2D product photo and convert it into a production-ready 3D model (<code>.glb</code> / <code>.usdz</code>) in <strong>10–15 seconds</strong> via AI.</li>
+    <li>Calibrate real-world metric dimensions (1:1 scale) so the product appears true-to-size in Augmented Reality.</li>
+    <li>Embed a standalone, framework-agnostic 3D & AR Viewer widget (<code>&lt;universal-ar-viewer&gt;</code>) into any website using just 2 lines of code.</li>
+  </ul>
+
+  <div class="callout">
+    <strong>Key Advantage:</strong> By decoupling the AI 3D generator (backend) from the AR Viewer (frontend component), this library can be used for any product category: furniture, lighting, home decor, electronics, or fashion accessories.
+  </div>
+
+  <h2>2. System Architecture</h2>
+  <pre><code>┌──────────────────────────────────────────────────────────────────────────┐
+│                           HOST APPLICATION                               │
+│            (Shopify / WordPress / Next.js / Custom Web App)              │
+│                                                                          │
+│  1. Upload Photo                  4. Embed Viewer                        │
+│       │                                │                                 │
+└───────┼────────────────────────────────┼─────────────────────────────────┘
+        ▼                                ▼
+┌───────────────────────────────┐ ┌────────────────────────────────────────┐
+│   Photo-to-3D AI Service      │ │   Universal 3D & AR Viewer SDK         │
+│   (Node.js / Cloudflare / AWS)│ │   (Web Component / NPM Package)        │
+│                               │ │                                        │
+│ • Background removal          │ │ • Three.js WebGL Engine                │
+│ • Tripo3D / Meshy AI API      │ │ • Realistic Studio PBR Lighting        │
+│ • Metric Scale Calibration    │ │ • Android Scene Viewer (WebXR / .glb)  │
+│ • GLB + USDZ CDN Storage      │ │ • iOS QuickLook AR (.usdz)             │
+└───────────────┬───────────────┘ └────────────────────────────────────────┘
+                │                                ▲
+                └─────────── .glb / .usdz ───────┘</code></pre>
+
+  <h2>3. Photo-to-3D AI Generation Comparison</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Engine</th>
+        <th>Generation Time</th>
+        <th>Output Formats</th>
+        <th>Texturing Quality</th>
+        <th>Recommendation</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Tripo3D API</strong></td>
+        <td><strong>8 – 15 seconds</strong></td>
+        <td>.glb, .usdz, .obj</td>
+        <td>PBR (Color, Roughness, Normal)</td>
+        <td><strong>Recommended</strong> for live web user experience</td>
+      </tr>
+      <tr>
+        <td><strong>Meshy.ai API</strong></td>
+        <td>30 – 60 seconds</td>
+        <td>.glb, .usdz, .fbx</td>
+        <td>High-detail PBR</td>
+        <td>Ideal for catalog batch conversion</td>
+      </tr>
+      <tr>
+        <td><strong>Stable Fast 3D</strong></td>
+        <td>1 – 3 seconds</td>
+        <td>.glb</td>
+        <td>Single Texture Map</td>
+        <td>High throughput, lower detail</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>4. Backend API Implementation (Node.js / Next.js)</h2>
+  <p>This backend endpoint receives the product photo, requests the 3D model from the AI service, and returns the finished <code>.glb</code> URL:</p>
+  <pre><code>// api/photo-to-3d.js
+import axios from 'axios';
+
+const TRIPO_API_KEY = process.env.TRIPO_API_KEY;
+const TRIPO_BASE_URL = 'https://api.tripo3d.ai/v2/openapi';
+
+export async function generate3DFromImage(imageBase64, imageFormat = 'jpg') {
+  // Step 1: Submit generation task
+  const startResponse = await axios.post(
+    `${TRIPO_BASE_URL}/task`,
+    {
+      type: 'image_to_model',
+      file: { type: imageFormat, data: imageBase64 }
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${TRIPO_API_KEY}`,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+
+  const taskId = startResponse.data.data.task_id;
+
+  // Step 2: Poll status until complete (~10 to 15s)
+  let status = 'queued';
+  let modelOutput = null;
+
+  while (status === 'queued' || status === 'running') {
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+
+    const check = await axios.get(`${TRIPO_BASE_URL}/task/${taskId}`, {
+      headers: { Authorization: `Bearer ${TRIPO_API_KEY}` }
+    });
+
+    status = check.data.data.status;
+    if (status === 'success') {
+      modelOutput = check.data.data.output;
+      break;
+    } else if (status === 'failed') {
+      throw new Error('AI generation failed: ' + check.data.data.message);
+    }
+  }
+
+  return {
+    taskId,
+    glbUrl: modelOutput.model, // Direct link to .glb model
+    renderedPreview: modelOutput.rendered_image
+  };
+}</code></pre>
+
+  <h2>5. Metric Scale Calibration for True-to-Life AR</h2>
+  <p>To ensure products render in AR at real-life dimensions (e.g., exactly 0.85m tall), apply this bounding box normalization in Three.js:</p>
+  <pre><code>import * as THREE from 'three';
+
+export function calibrateModelScale(gltfScene, targetHeightMeters = 0.5) {
+  const box = new THREE.Box3().setFromObject(gltfScene);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+
+  const currentHeight = size.y;
+  if (currentHeight > 0) {
+    const scaleFactor = targetHeightMeters / currentHeight;
+    gltfScene.scale.set(scaleFactor, scaleFactor, scaleFactor);
+  }
+
+  // Position the model origin directly on the floor (y = 0)
+  const updatedBox = new THREE.Box3().setFromObject(gltfScene);
+  const center = new THREE.Vector3();
+  updatedBox.getCenter(center);
+  gltfScene.position.x -= center.x;
+  gltfScene.position.z -= center.z;
+  gltfScene.position.y -= updatedBox.min.y;
+}</code></pre>
+
+  <h2>6. Embedding Across Multiple Platforms</h2>
+
+  <h3>A. Plain HTML / WordPress</h3>
+  <pre><code>&lt;!-- 1. Include the library bundle --&gt;
+&lt;script src="https://cdn.yourdomain.com/universal-ar-viewer.js" defer&gt;&lt;/script&gt;
+
+&lt;!-- 2. Use the custom component --&gt;
+&lt;universal-ar-viewer 
+  src="https://cdn.yourdomain.com/models/sample-product.glb"
+  usdz-src="https://cdn.yourdomain.com/models/sample-product.usdz"
+  alt="Designer Chair"&gt;
+&lt;/universal-ar-viewer&gt;</code></pre>
+
+  <h3>B. Shopify (Liquid Theme)</h3>
+  <pre><code>&lt;script src="https://cdn.yourdomain.com/universal-ar-viewer.js" defer&gt;&lt;/script&gt;
+
+&lt;div style="width: 100%; height: 500px;"&gt;
+  {% if product.metafields.custom.ai_model_glb %}
+    &lt;universal-ar-viewer 
+      src="{{ product.metafields.custom.ai_model_glb }}"
+      alt="{{ product.title | escape }}"&gt;
+    &lt;/universal-ar-viewer&gt;
+  {% endif %}
+&lt;/div&gt;</code></pre>
+
+  <h3>C. React / Next.js</h3>
+  <pre><code>'use client';
+import { useEffect } from 'react';
+
+export default function Product3DPage({ glbUrl, title }) {
+  useEffect(() => {
+    import('@your-org/universal-ar-viewer');
+  }, []);
+
+  return (
+    &lt;div className="w-full h-[500px] rounded-xl overflow-hidden shadow-lg"&gt;
+      &lt;universal-ar-viewer src={glbUrl} alt={title} /&gt;
+    &lt;/div&gt;
+  );
+}</code></pre>
+
+  <h2>7. CORS & Server Checklist</h2>
+  <ul>
+    <li><strong>CORS:</strong> Ensure your CDN (S3/Cloudflare R2) returns <code>Access-Control-Allow-Origin: *</code> so cross-origin sites can load the 3D assets.</li>
+    <li><strong>MIME Types:</strong> Serve <code>.glb</code> as <code>model/gltf-binary</code> and <code>.usdz</code> as <code>model/vnd.usdz+zip</code>.</li>
+    <li><strong>HTTPS:</strong> Mandatory for WebXR, Apple QuickLook, and Google Scene Viewer.</li>
+  </ul>
+</div>
+
+</body>
+</html>
