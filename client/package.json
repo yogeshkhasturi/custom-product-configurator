@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node --max-old-space-size=4096 node_modules/next/dist/bin/next dev",
-    "build": "node --max-old-space-size=4096 node_modules/next/dist/bin/next build",
+    "dev": "node --max-old-space-size=4096 node_modules/next/dist/bin/next dev --webpack",
+    "build": "node --max-old-space-size=4096 node_modules/next/dist/bin/next build --webpack",
     "start": "next start",
     "lint": "eslint"
   },
@@ -15,6 +15,7 @@
     "@mui/icons-material": "^6.1.1",
     "@mui/material": "^6.1.1",
     "@reduxjs/toolkit": "^2.13.0",
+    "@universal/image-to-3d-ar": "file:./lib/universal-ar",
     "axios": "^1.7.7",
     "next": "16.4.0",
     "react": "19.3.0",

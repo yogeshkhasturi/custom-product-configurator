@@ -1,0 +1,49 @@
+{
+  "name": "@universal/image-to-3d-ar",
+  "version": "1.0.0",
+  "description": "Universal Image-to-3D AI Generation and Cross-Platform AR Viewer Library for E-commerce",
+  "type": "module",
+  "main": "dist/image-to-3d-ar.umd.js",
+  "module": "dist/image-to-3d-ar.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/image-to-3d-ar.es.js",
+      "require": "./dist/image-to-3d-ar.umd.js"
+    },
+    "./ai": {
+      "import": "./src/ai/photoTo3dService.js"
+    },
+    "./server": {
+      "import": "./src/ai/server.js"
+    }
+  },
+  "scripts": {
+    "dev": "vite --port 3000",
+    "build": "vite build",
+    "preview": "vite preview",
+    "server": "node src/ai/server.js"
+  },
+  "keywords": [
+    "threejs",
+    "image-to-3d",
+    "photo-to-3d",
+    "augmented-reality",
+    "webxr",
+    "quicklook",
+    "scene-viewer",
+    "web-component",
+    "ecommerce"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.174.0"
+  },
+  "devDependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "vite": "^6.2.0"
+  }
+}

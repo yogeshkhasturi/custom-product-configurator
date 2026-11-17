@@ -1,8 +1,9 @@
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
 require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
-const path = require("path");
 const mongoose = require("mongoose");
 
 const productRoutes = require("./routes/productRoutes");
@@ -10,6 +11,7 @@ const projectRoutes = require("./routes/projectRoutes");
 const uploadRoutes = require("./routes/uploadRoutes");
 const fixImagesRoute = require("./routes/fixImagesRoute");
 const arRoutes = require("./routes/arRoutes");
+const generate3dRoutes = require("./routes/generate3dRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -79,6 +81,8 @@ app.use("/api/projects", projectRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/fix-images", fixImagesRoute);
 app.use("/api/ar", arRoutes);
+app.use("/api/generate-3d", generate3dRoutes);
+app.post("/api/generate-prompt-3d", generate3dRoutes.handleGeneratePrompt3D);
 
 // --------------------------------------------------
 // Health check

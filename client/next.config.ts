@@ -5,6 +5,7 @@ const localBackend = process.env.BACKEND_URL || 'http://127.0.0.1:5000';
 const prodBackend = 'https://phpstack-1344824-6717026.cloudwaysapps.com';
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['@universal/image-to-3d-ar'],
   allowedDevOrigins: [
     '*.ngrok-free.dev',
     '*.ngrok.app',

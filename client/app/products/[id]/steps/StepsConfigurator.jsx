@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -543,7 +543,16 @@ export default function StepsConfigurator({
         if (configRes.status === 'fulfilled') {
           let newGallery = configRes.value.data?.images;
 
-          // Fallback: If no variant configuration matched specific images, check if currently selected options have images
+          // Priority 1: Configuration matched images (if variant has mapped images)
+          // Priority 2: Product primary gallery images (e.g. photos uploaded in admin for standard products)
+          const hasConfigurations = Array.isArray(product?.configurations) && product.configurations.length > 0;
+          if (!newGallery || !newGallery.length) {
+            if (!hasConfigurations && Array.isArray(product?.images) && product.images.length > 0) {
+              newGallery = product.images;
+            }
+          }
+
+          // Fallback: If no configuration images and product has no uploaded gallery, check option images
           if (!newGallery || !newGallery.length) {
             for (const step of configSteps) {
               if (step.type === 'review') continue;

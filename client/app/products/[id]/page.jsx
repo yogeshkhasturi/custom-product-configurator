@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState, useMemo, useRef, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import Box from '@mui/material/Box';
@@ -26,6 +26,8 @@ import { isFieldVisible, resolveImageUrl, resolveImageUrls } from '../../../lib/
 import StepsConfigurator from './steps/StepsConfigurator';
 import ProductImageMagnifier from './ProductImageMagnifier';
 import Lampshade3DViewer from './Lampshade3DViewer';
+import ImageTo3DViewer from '../../components/ImageTo3DViewer';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
 // Numbered step badge (1, 2, 3)
 function StepBadge({ number }) {
@@ -201,6 +203,7 @@ function ProductDetail() {
   const [loadedImageUrl, setLoadedImageUrl] = useState('');
   const [stepsPriceResult, setStepsPriceResult] = useState(null);
   const [viewMode, setViewMode] = useState('photo'); // 'photo' | '3d'
+  const [sub3dMode, setSub3dMode] = useState('customizer'); // 'customizer' | 'model'
   const [liveStepsSelections, setLiveStepsSelections] = useState({});
   const resolveReqId = useRef(0);
 
@@ -210,14 +213,17 @@ function ProductDetail() {
   const isGalleryLoading = configResolving || isImageLoading;
 
   // Active 3D Visualizer Dimensions and Covering parameters
+  const isPleated = product?.sku?.startsWith('BW-72') || product?.name?.toLowerCase().includes('pleated');
+  const isVNotch = product?.sku?.startsWith('LE-V20') || product?.slug?.includes('v-notch');
+
   const active3DParams = useMemo(() => {
     const source = isStepsMode ? liveStepsSelections : userSelections;
-    let top = 8;
-    let bottom = 14;
-    let height = 10;
-    let covering = 'Natural Linen';
+    let top = isPleated ? 3.5 : 8;
+    let bottom = isPleated ? 4.5 : (isVNotch ? 12 : 14);
+    let height = isPleated ? 4.5 : (isVNotch ? 11 : 10);
+    let covering = isPleated ? 'Bone Pure Silk' : (isVNotch ? 'White' : 'Natural Linen');
     let coveringImg = isStepsMode ? liveStepsSelections._coveringImage || '' : '';
-    let attachment = 'Washer';
+    let attachment = isPleated ? 'Black Washer' : 'Washer';
 
     // Check URL parameters (e.g. from mobile AR QR code scan)
     if (typeof window !== 'undefined') {
@@ -245,6 +251,17 @@ function ProductDetail() {
       if (key.startsWith('_')) continue;
       const k = key.toLowerCase();
       const v = String(val);
+
+      // Parse combined dimensions e.g. '8x12x11', '10x16x13', '8x12x11 inches'
+      const sizeMatch = v.match(/(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)/i);
+      if (sizeMatch) {
+        const pTop = parseFloat(sizeMatch[1]);
+        const pBottom = parseFloat(sizeMatch[2]);
+        const pHeight = parseFloat(sizeMatch[3]);
+        if (!isNaN(pTop) && pTop > 0) top = pTop;
+        if (!isNaN(pBottom) && pBottom > 0) bottom = pBottom;
+        if (!isNaN(pHeight) && pHeight > 0) height = pHeight;
+      }
       if (k.includes('top') && (k.includes('diameter') || k.includes('size') || k.includes('dim'))) {
         const parsed = parseFloat(v);
         if (!isNaN(parsed) && parsed > 0) top = parsed;
@@ -263,6 +280,9 @@ function ProductDetail() {
 
     return { top, bottom, height, covering, coveringImg, attachment };
   }, [isStepsMode, liveStepsSelections, userSelections]);
+
+  // Derive 3D shape type from product SKU
+  const shapeType3D = isPleated ? 'pleated' : isVNotch ? 'v-notch-bell' : 'cone';
 
   // Automatically activate 3D mode if opened with ?ar=1 (e.g. mobile QR scan)
   useEffect(() => {
@@ -430,15 +450,69 @@ function ProductDetail() {
               </Box>
 
               {viewMode === '3d' ? (
-                <Box sx={{ width: '100%', height: { xs: 340, sm: 400, md: 460, lg: 500 }, borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                  <Lampshade3DViewer
-                    topDiameter={active3DParams.top}
-                    bottomDiameter={active3DParams.bottom}
-                    height={active3DParams.height}
-                    coveringName={active3DParams.covering}
-                    coveringImageUrl={active3DParams.coveringImg}
-                    attachmentStyle={active3DParams.attachment}
-                  />
+                <Box sx={{ width: '100%', height: { xs: 340, sm: 400, md: 460, lg: 500 }, borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
+                  {product?.model3dUrl && (
+                    <Box sx={{ display: 'flex', gap: 1, p: 1, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                      <Button
+                        size="small"
+                        onClick={() => setSub3dMode('customizer')}
+                        sx={{
+                          fontSize: 11,
+                          textTransform: 'none',
+                          fontWeight: 700,
+                          px: 1.2,
+                          py: 0.3,
+                          borderRadius: '6px',
+                          bgcolor: sub3dMode === 'customizer' ? '#0f172a' : 'transparent',
+                          color: sub3dMode === 'customizer' ? '#fff' : '#64748b',
+                          '&:hover': { bgcolor: sub3dMode === 'customizer' ? '#1e293b' : '#e2e8f0' },
+                        }}
+                      >
+                        Customizer 3D
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={() => setSub3dMode('model')}
+                        startIcon={<AutoAwesomeIcon sx={{ fontSize: 13 }} />}
+                        sx={{
+                          fontSize: 11,
+                          textTransform: 'none',
+                          fontWeight: 700,
+                          px: 1.2,
+                          py: 0.3,
+                          borderRadius: '6px',
+                          bgcolor: sub3dMode === 'model' ? '#0284c7' : 'transparent',
+                          color: sub3dMode === 'model' ? '#fff' : '#0284c7',
+                          border: sub3dMode === 'model' ? 'none' : '1px solid #bae6fd',
+                          '&:hover': { bgcolor: sub3dMode === 'model' ? '#0369a1' : '#f0f9ff' },
+                        }}
+                      >
+                        AI 3D Model & AR
+                      </Button>
+                    </Box>
+                  )}
+                  <Box sx={{ flex: 1, width: '100%', position: 'relative' }}>
+                    {sub3dMode === 'model' && product?.model3dUrl ? (
+                      <ImageTo3DViewer
+                        src={product.model3dUrl}
+                        usdzSrc={product.modelUsdzUrl}
+                        alt={product.name || 'Product 3D Model'}
+                        autoRotate
+                        height="100%"
+                        width="100%"
+                      />
+                    ) : (
+                      <Lampshade3DViewer
+                        topDiameter={active3DParams.top}
+                        bottomDiameter={active3DParams.bottom}
+                        height={active3DParams.height}
+                        coveringName={active3DParams.covering}
+                        coveringImageUrl={active3DParams.coveringImg}
+                        attachmentStyle={active3DParams.attachment}
+                        shapeType={shapeType3D}
+                      />
+                    )}
+                  </Box>
                 </Box>
               ) : (
                 <Box sx={{ display: 'flex', flexDirection: { xs: 'column-reverse', sm: 'row' }, gap: { xs: 1.5, sm: 2 }, alignItems: 'stretch' }}>
@@ -709,15 +783,69 @@ function ProductDetail() {
             </Box>
 
             {viewMode === '3d' ? (
-              <Box sx={{ width: '100%', height: { xs: 340, sm: 400, md: 460, lg: 500 }, borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                <Lampshade3DViewer
-                  topDiameter={active3DParams.top}
-                  bottomDiameter={active3DParams.bottom}
-                  height={active3DParams.height}
-                  coveringName={active3DParams.covering}
-                  coveringImageUrl={active3DParams.coveringImg}
-                  attachmentStyle={active3DParams.attachment}
-                />
+              <Box sx={{ width: '100%', height: { xs: 340, sm: 400, md: 460, lg: 500 }, borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column' }}>
+                {product?.model3dUrl && (
+                  <Box sx={{ display: 'flex', gap: 1, p: 1, bgcolor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <Button
+                      size="small"
+                      onClick={() => setSub3dMode('customizer')}
+                      sx={{
+                        fontSize: 11,
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        px: 1.2,
+                        py: 0.3,
+                        borderRadius: '6px',
+                        bgcolor: sub3dMode === 'customizer' ? '#0f172a' : 'transparent',
+                        color: sub3dMode === 'customizer' ? '#fff' : '#64748b',
+                        '&:hover': { bgcolor: sub3dMode === 'customizer' ? '#1e293b' : '#e2e8f0' },
+                      }}
+                    >
+                      Customizer 3D
+                    </Button>
+                    <Button
+                      size="small"
+                      onClick={() => setSub3dMode('model')}
+                      startIcon={<AutoAwesomeIcon sx={{ fontSize: 13 }} />}
+                      sx={{
+                        fontSize: 11,
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        px: 1.2,
+                        py: 0.3,
+                        borderRadius: '6px',
+                        bgcolor: sub3dMode === 'model' ? '#0284c7' : 'transparent',
+                        color: sub3dMode === 'model' ? '#fff' : '#0284c7',
+                        border: sub3dMode === 'model' ? 'none' : '1px solid #bae6fd',
+                        '&:hover': { bgcolor: sub3dMode === 'model' ? '#0369a1' : '#f0f9ff' },
+                      }}
+                    >
+                      AI 3D Model & AR
+                    </Button>
+                  </Box>
+                )}
+                <Box sx={{ flex: 1, width: '100%', position: 'relative' }}>
+                  {sub3dMode === 'model' && product?.model3dUrl ? (
+                    <ImageTo3DViewer
+                      src={product.model3dUrl}
+                      usdzSrc={product.modelUsdzUrl}
+                      alt={product.name || 'Product 3D Model'}
+                      autoRotate
+                      height="100%"
+                      width="100%"
+                    />
+                  ) : (
+                    <Lampshade3DViewer
+                      topDiameter={active3DParams.top}
+                      bottomDiameter={active3DParams.bottom}
+                      height={active3DParams.height}
+                      coveringName={active3DParams.covering}
+                      coveringImageUrl={active3DParams.coveringImg}
+                      attachmentStyle={active3DParams.attachment}
+                      shapeType={shapeType3D}
+                    />
+                  )}
+                </Box>
               </Box>
             ) : (
               <Box

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
@@ -191,7 +191,13 @@ function loadCleanFabricTexture(url, coveringName, rTop, rBottom, h, maxAnisotro
   // Curated seamless textures for guaranteed photo-realism on standard catalog coverings
   const n = String(coveringName || '').toLowerCase();
   let targetUrl = url;
-  if (n.includes('black')) {
+  let customBumpUrl = null;
+  const isPleatedTexture = n.includes('pleat') || n.includes('silk') || n.includes('bone');
+
+  if (isPleatedTexture) {
+    targetUrl = '/images/lampshades/coverings/pleated-bone-silk.webp';
+    customBumpUrl = '/images/lampshades/coverings/pleated-bone-silk-bump.webp';
+  } else if (n.includes('black')) {
     targetUrl = '/images/lampshades/coverings/seamless-black.webp';
   } else if (n.includes('off white') || n.includes('off-white')) {
     targetUrl = '/images/lampshades/coverings/seamless-offwhite.webp';
@@ -308,13 +314,28 @@ function loadCleanFabricTexture(url, coveringName, rTop, rBottom, h, maxAnisotro
       bumpTexture.wrapT = THREE.RepeatWrapping;
       bumpTexture.anisotropy = maxAnisotropy;
 
-      // Realistic physical thread scaling (1:1 square weave)
+      // Realistic physical thread scaling (1:1 square weave or vertical pleats)
+      const isPleatedTex = n.includes('pleat') || n.includes('silk') || n.includes('bone');
       const circumference = Math.PI * (rTop + rBottom);
-      const repeatU = Math.max(2, Math.round(circumference / 3.0));
-      const repeatV = Math.max(1, Math.round(h / 3.0));
+      const repeatU = isPleatedTex ? 4 : Math.max(2, Math.round(circumference / 3.0));
+      const repeatV = isPleatedTex ? 1 : Math.max(1, Math.round(h / 3.0));
 
       diffuseTexture.repeat.set(repeatU, repeatV);
       bumpTexture.repeat.set(repeatU, repeatV);
+
+      if (customBumpUrl) {
+        const loader = new THREE.TextureLoader();
+        loader.load(customBumpUrl, (loadedBump) => {
+          loadedBump.wrapS = THREE.RepeatWrapping;
+          loadedBump.wrapT = THREE.RepeatWrapping;
+          loadedBump.anisotropy = maxAnisotropy;
+          loadedBump.repeat.set(repeatU, repeatV);
+          onLoad({ diffuseTexture, bumpTexture: loadedBump });
+        }, undefined, () => {
+          onLoad({ diffuseTexture, bumpTexture });
+        });
+        return;
+      }
 
       onLoad({ diffuseTexture, bumpTexture });
     } catch (e) {
@@ -469,6 +490,243 @@ function createLightBulbMesh(bulbRadius, bulbHeight, isLampOn, isCandelabra = fa
   return { bulbMesh, bulbMat, filamentMesh };
 }
 
+// ── V-NOTCH BELL SHAPE GEOMETRY ──
+// Bell-curve silhouette via LatheGeometry + V-notch scallop teeth at top and bottom rims
+// ── AUTHENTIC V-NOTCH ROUND BELL SHAPE ──
+// Parametric 3D Bell with 8 V-notch dips at the top rim, arched bottom skirt,
+// concave cinched waist, braided gimp cord tracing rims, and vertical rib piping
+function buildVNotchBellMeshes(rTop, rBottom, h, outerMat, innerMat, trimMat, notchCount = 8) {
+  const meshes = [];
+  const notchDepthY = 0.058 * h; // Authentic V-notch vertical dip depth
+
+  // Helper to calculate 3D position (x, y, z) at (v, theta)
+  function getPointAt(v, theta, isInner = false) {
+    const t = v; // 0 = bottom, 1 = top
+    const offset = isInner ? -0.035 : 0;
+
+    // Concave bell waist cinch + gentle bottom flare
+    const rBase =
+      rBottom +
+      (rTop - rBottom) * t -
+      0.075 * rBottom * Math.sin(Math.PI * Math.pow(t, 0.82)) +
+      0.018 * rBottom * Math.pow(1 - t, 2.5) +
+      offset;
+
+    // 8 V-Notch radial lobes and creases
+    const cosN = Math.cos(notchCount * theta);
+    const crease = Math.pow(Math.sin((notchCount * theta) / 2), 2); // 0 at lobe peak, 1 at notch valley
+    const r = Math.max(0.1, rBase * (1.0 + 0.038 * cosN - 0.02 * crease));
+
+    // True 3D rim undulation: top rim dips DOWN into V-notches, bottom skirt arches UP
+    const yDip = -notchDepthY * crease;
+    const yArch = +notchDepthY * crease;
+    const y = (-h / 2 + v * h) + (1 - v) * yArch + v * yDip;
+
+    const x = r * Math.cos(theta);
+    const z = r * Math.sin(theta);
+    return { x, y, z, r };
+  }
+
+  // Full parametric 3D surface mesh with correct outward normals
+  function createBellGeometry(isInner = false) {
+    const segmentsY = 64;
+    const segmentsX = 128;
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    for (let i = 0; i <= segmentsY; i++) {
+      const v = i / segmentsY;
+      for (let j = 0; j <= segmentsX; j++) {
+        const u = j / segmentsX;
+        const theta = u * Math.PI * 2;
+        const p = getPointAt(v, theta, isInner);
+
+        positions.push(p.x, p.y, p.z);
+        uvs.push(u * (notchCount / 2), v);
+      }
+    }
+
+    const stride = segmentsX + 1;
+    for (let i = 0; i < segmentsY; i++) {
+      for (let j = 0; j < segmentsX; j++) {
+        const a = i * stride + j;
+        const b = (i + 1) * stride + j;
+        const c = (i + 1) * stride + (j + 1);
+        const d = i * stride + (j + 1);
+
+        if (isInner) {
+          indices.push(a, d, b);
+          indices.push(b, d, c);
+        } else {
+          indices.push(a, b, d);
+          indices.push(b, c, d);
+        }
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  // 1. Outer fabric bell shell
+  const outerGeo = createBellGeometry(false);
+  meshes.push(new THREE.Mesh(outerGeo, outerMat));
+
+  // 2. Inner styrene lining
+  const innerGeo = createBellGeometry(true);
+  meshes.push(new THREE.Mesh(innerGeo, innerMat));
+
+  // 3. Top Rim Gimp Braid (3D braided rope following scalloped V-notch contour)
+  const topPts = [];
+  const rimSteps = 128;
+  for (let j = 0; j < rimSteps; j++) {
+    const theta = (j / rimSteps) * Math.PI * 2;
+    const p = getPointAt(1.0, theta, false);
+    topPts.push(new THREE.Vector3(p.x, p.y, p.z));
+  }
+  const topCurve = new THREE.CatmullRomCurve3(topPts, true);
+  const topBraidGeo = new THREE.TubeGeometry(topCurve, 128, 0.055, 10, true);
+  meshes.push(new THREE.Mesh(topBraidGeo, trimMat));
+
+  // 4. Bottom Rim Gimp Braid (3D braided rope following scalloped bottom skirt)
+  const botPts = [];
+  for (let j = 0; j < rimSteps; j++) {
+    const theta = (j / rimSteps) * Math.PI * 2;
+    const p = getPointAt(0.0, theta, false);
+    botPts.push(new THREE.Vector3(p.x, p.y, p.z));
+  }
+  const botCurve = new THREE.CatmullRomCurve3(botPts, true);
+  const botBraidGeo = new THREE.TubeGeometry(botCurve, 128, 0.065, 10, true);
+  meshes.push(new THREE.Mesh(botBraidGeo, trimMat));
+
+  // 5. 8 Vertical Piping Seams running down each notch crease
+  for (let n = 0; n < notchCount; n++) {
+    const theta = ((n + 0.5) / notchCount) * Math.PI * 2;
+    const ribPts = [];
+    const ribSteps = 24;
+    for (let s = 0; s <= ribSteps; s++) {
+      const v = s / ribSteps;
+      const p = getPointAt(v, theta, false);
+      ribPts.push(new THREE.Vector3(p.x, p.y, p.z));
+    }
+    const ribCurve = new THREE.CatmullRomCurve3(ribPts);
+    const ribGeo = new THREE.TubeGeometry(ribCurve, 20, 0.022, 6, false);
+    meshes.push(new THREE.Mesh(ribGeo, trimMat));
+  }
+
+  return meshes;
+}
+// ── PLEATED LAMPSHADE GEOMETRY ──
+// Conical lampshade with 72 fine vertical accordion knife pleats and rolled trim rims
+// ── PLEATED LAMPSHADE GEOMETRY ──
+// Conical lampshade with 60 soft knife pleats and clean tailored fabric cuff bands
+// ── PLEATED LAMPSHADE GEOMETRY ──
+// Conical lampshade featuring real pleated silk photographic texture with soft organic fluting and clean tailored cuffs
+function buildPleatedMeshes(rTop, rBottom, h, outerMat, innerMat, trimMat) {
+  const meshes = [];
+
+  function createPleatedGeometry(isInner = false) {
+    const segmentsY = 64;
+    const segmentsX = 128;
+    const positions = [];
+    const uvs = [];
+    const indices = [];
+
+    const offset = isInner ? -0.035 : 0;
+    // Gentle 1.5% micro-fluting aligns with the real photographic pleat texture
+    const pleatAmp = isInner ? 0.008 : 0.016;
+    const pleatWaves = 52; // Matches 4 x 13 pleats in the photographic texture
+
+    for (let i = 0; i <= segmentsY; i++) {
+      const v = i / segmentsY;
+      const y = -h / 2 + v * h;
+      const rBase = rBottom + (rTop - rBottom) * v + offset;
+
+      // Soft envelope tapering into top and bottom binding bands
+      const envelope = Math.sin(Math.pow(v, 0.85) * Math.PI);
+      const amp = pleatAmp * (0.2 + 0.8 * envelope);
+
+      for (let j = 0; j <= segmentsX; j++) {
+        const u = j / segmentsX;
+        const theta = u * Math.PI * 2;
+
+        const fold = Math.sin(theta * pleatWaves);
+        const r = Math.max(0.1, rBase * (1.0 + fold * amp));
+
+        const x = r * Math.cos(theta);
+        const z = r * Math.sin(theta);
+
+        positions.push(x, y, z);
+        uvs.push(u, v);
+      }
+    }
+
+    const stride = segmentsX + 1;
+    for (let i = 0; i < segmentsY; i++) {
+      for (let j = 0; j < segmentsX; j++) {
+        const a = i * stride + j;
+        const b = (i + 1) * stride + j;
+        const c = (i + 1) * stride + (j + 1);
+        const d = i * stride + (j + 1);
+
+        if (isInner) {
+          indices.push(a, d, b);
+          indices.push(b, d, c);
+        } else {
+          indices.push(a, b, d);
+          indices.push(b, c, d);
+        }
+      }
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    return geo;
+  }
+
+  // 1. Outer pleated silk shell
+  const outerGeo = createPleatedGeometry(false);
+  meshes.push(new THREE.Mesh(outerGeo, outerMat));
+
+  // 2. Inner lining
+  const innerGeo = createPleatedGeometry(true);
+  meshes.push(new THREE.Mesh(innerGeo, innerMat));
+
+  // 3. Tailored rolled fabric trim cuffs at top and bottom rims
+  // Top cuff band
+  const topCuffHeight = Math.min(0.28, h * 0.065);
+  const topCuffGeo = new THREE.CylinderGeometry(rTop + 0.015, rTop + 0.018, topCuffHeight, 64, 1, true);
+  const topCuff = new THREE.Mesh(topCuffGeo, trimMat);
+  topCuff.position.y = h / 2 - topCuffHeight / 2;
+  meshes.push(topCuff);
+
+  const topRimBead = new THREE.Mesh(new THREE.TorusGeometry(rTop + 0.018, 0.028, 12, 64), trimMat);
+  topRimBead.rotation.x = Math.PI / 2;
+  topRimBead.position.y = h / 2;
+  meshes.push(topRimBead);
+
+  // Bottom cuff band
+  const botCuffHeight = Math.min(0.35, h * 0.075);
+  const botCuffGeo = new THREE.CylinderGeometry(rBottom + 0.018, rBottom + 0.022, botCuffHeight, 64, 1, true);
+  const botCuff = new THREE.Mesh(botCuffGeo, trimMat);
+  botCuff.position.y = -h / 2 + botCuffHeight / 2;
+  meshes.push(botCuff);
+
+  const botRimBead = new THREE.Mesh(new THREE.TorusGeometry(rBottom + 0.022, 0.032, 12, 64), trimMat);
+  botRimBead.rotation.x = Math.PI / 2;
+  botRimBead.position.y = -h / 2;
+  meshes.push(botRimBead);
+
+  return meshes;
+}
 export default function Lampshade3DViewer({
   topDiameter = 8,
   bottomDiameter = 14,
@@ -476,6 +734,7 @@ export default function Lampshade3DViewer({
   coveringName = 'Natural Linen',
   coveringImageUrl = '',
   attachmentStyle = 'Washer',
+  shapeType = 'cone',
   onLightToggle,
 }) {
   const mountRef = useRef(null);
@@ -880,12 +1139,15 @@ export default function Lampshade3DViewer({
         if (isDark) {
           mat.emissive = new THREE.Color(0x3a2512); // Subtle warm amber rim bleed
           mat.emissiveIntensity = 0.25;
+        } else if (/silk|pleat|bone/i.test(coveringName)) {
+          mat.emissive = new THREE.Color(0xffedd5); // Soft inner warmth
+          mat.emissiveIntensity = 0.18; // Crisp pleat shadows and ridge contrast
         } else if (isNatural) {
           mat.emissive = new THREE.Color(0xf59e0b); // Rich warm amber honey glow
           mat.emissiveIntensity = 1.25;
         } else {
           mat.emissive = new THREE.Color(0xffbe76); // Radiant warm incandescent white
-          mat.emissiveIntensity = 1.35;
+          mat.emissiveIntensity = 0.85;
         }
         // Set emissiveMap to diffuse texture so physical fabric threads glow from within!
         if (mat.map) {
@@ -953,7 +1215,12 @@ export default function Lampshade3DViewer({
     const isNatural = /natural|tan|burlap|kraft/i.test(coveringName) && !isDark && !/white/i.test(coveringName);
 
     // ── A. OUTER FABRIC SHELL ──
-    const outerGeo = new THREE.CylinderGeometry(rTop, rBottom, h, 96, 1, true);
+    // Shape-branch: 'cone' (default) or 'v-notch-bell'
+    const isVNotchBell = shapeType === 'v-notch-bell';
+    const isPleated = shapeType === 'pleated';
+    const outerGeo = isVNotchBell
+      ? null
+      : new THREE.CylinderGeometry(rTop, rBottom, h, 96, 1, true);
 
     const maxAnisotropy = rendererRef.current?.capabilities?.getMaxAnisotropy?.() || 8;
     const { diffuseTexture: procDiff, bumpTexture: procBump } = createFabricTexture(baseColor, coveringName, maxAnisotropy);
@@ -968,7 +1235,7 @@ export default function Lampshade3DViewer({
       sheen: 0.78,
       sheenRoughness: 0.45,
       sheenColor: isDark ? new THREE.Color(0x777777) : (isNatural ? new THREE.Color(0xf6e5cb) : new THREE.Color(0xfff6ea)),
-      side: THREE.FrontSide,
+      side: THREE.DoubleSide,
     });
     if (isLampOn) {
       if (isDark) {
@@ -998,7 +1265,7 @@ export default function Lampshade3DViewer({
       sheen: 0.78,
       sheenRoughness: 0.45,
       sheenColor: isDark ? new THREE.Color(0x777777) : (isNatural ? new THREE.Color(0xf6e5cb) : new THREE.Color(0xfff6ea)),
-      side: THREE.FrontSide,
+      side: THREE.DoubleSide,
     });
     if (isLampOn) {
       if (isDark) {
@@ -1095,27 +1362,7 @@ export default function Lampshade3DViewer({
       );
     }
 
-    const outerMesh = new THREE.Mesh(outerGeo, outerMat);
-    group.add(outerMesh);
-
-    // Overlapped vertical seam strip on the back (at Math.PI)
-    const seamWidth = 0.38; // 0.38" overlap width
-    const seamTheta = Math.min(0.08, seamWidth / rBottom);
-    const seamGeo = new THREE.CylinderGeometry(
-      rTop + 0.006,
-      rBottom + 0.006,
-      h,
-      8,
-      1,
-      true,
-      Math.PI - seamTheta / 2,
-      seamTheta
-    );
-    const seamMesh = new THREE.Mesh(seamGeo, seamMat);
-    group.add(seamMesh);
-
-    // ── B. INNER STYRENE / METALLIC LINING ──
-    const innerGeo = new THREE.CylinderGeometry(rTop - 0.035, rBottom - 0.035, h - 0.02, 96, 1, true);
+        // ── B. INNER STYRENE / METALLIC LINING MATERIAL ──
     const innerMat = new THREE.MeshStandardMaterial({
       color: isLampOn ? new THREE.Color(0xfff6e8) : new THREE.Color(0xf1f5f9),
       emissive: isLampOn ? new THREE.Color(0xffeedd) : new THREE.Color(0x000000),
@@ -1124,11 +1371,46 @@ export default function Lampshade3DViewer({
       metalness: 0.05,
       side: THREE.BackSide,
     });
-    const innerMesh = new THREE.Mesh(innerGeo, innerMat);
-    group.add(innerMesh);
     innerMatRef.current = innerMat;
 
-    // ── GROUND TABLETOP CONTACT SHADOW & DOWNWARD LIGHT POOL ──
+    if (isVNotchBell) {
+      // V-Notch Bell: authentic bell silhouette + 8 scalloped lobes + gimp braid rims + vertical rib piping
+      const vMeshes = buildVNotchBellMeshes(rTop, rBottom, h, outerMat, innerMat, trimMat, 8);
+      vMeshes.forEach((mesh) => {
+        group.add(mesh);
+      });
+    } else if (isPleated) {
+      // Pleated Lampshade: 72 knife pleats + rolled trim rims
+      const pMeshes = buildPleatedMeshes(rTop, rBottom, h, outerMat, innerMat, trimMat);
+      pMeshes.forEach((mesh) => {
+        group.add(mesh);
+      });
+    } else {
+      const outerMesh = new THREE.Mesh(outerGeo, outerMat);
+      group.add(outerMesh);
+
+      // Overlapped vertical seam strip on the back (at Math.PI)
+      const seamWidth = 0.38; // 0.38" overlap width
+      const seamTheta = Math.min(0.08, seamWidth / rBottom);
+      const seamGeo = new THREE.CylinderGeometry(
+        rTop + 0.006,
+        rBottom + 0.006,
+        h,
+        8,
+        1,
+        true,
+        Math.PI - seamTheta / 2,
+        seamTheta
+      );
+      const seamMesh = new THREE.Mesh(seamGeo, seamMat);
+      group.add(seamMesh);
+
+      const innerGeo = new THREE.CylinderGeometry(rTop - 0.035, rBottom - 0.035, h - 0.02, 96, 1, true);
+      const innerMesh = new THREE.Mesh(innerGeo, innerMat);
+      group.add(innerMesh);
+    }
+
+// ── GROUND TABLETOP CONTACT SHADOW & DOWNWARD LIGHT POOL ──
     const contactShadowTex = createContactShadowTexture();
     if (contactShadowTex) {
       const shadowSize = rBottom * 2.85;
@@ -1169,23 +1451,26 @@ export default function Lampshade3DViewer({
     group.add(downwardLight);
     downwardLightRef.current = downwardLight;
 
-    const topTrimGeo = new THREE.TorusGeometry(rTop, 0.042, 16, 96);
-    const topTrim = new THREE.Mesh(topTrimGeo, trimMat);
-    topTrim.rotation.x = Math.PI / 2;
-    topTrim.position.y = h / 2;
-    group.add(topTrim);
+    if (!isVNotchBell && !isPleated) {
+      const topTrimGeo = new THREE.TorusGeometry(rTop, 0.042, 16, 96);
+      const topTrim = new THREE.Mesh(topTrimGeo, trimMat);
+      topTrim.rotation.x = Math.PI / 2;
+      topTrim.position.y = h / 2;
+      group.add(topTrim);
 
-    const bottomTrimGeo = new THREE.TorusGeometry(rBottom, 0.048, 16, 96);
-    const bottomTrim = new THREE.Mesh(bottomTrimGeo, trimMat);
-    bottomTrim.rotation.x = Math.PI / 2;
-    bottomTrim.position.y = -h / 2;
-    group.add(bottomTrim);
+      const bottomTrimGeo = new THREE.TorusGeometry(rBottom, 0.048, 16, 96);
+      const bottomTrim = new THREE.Mesh(bottomTrimGeo, trimMat);
+      bottomTrim.rotation.x = Math.PI / 2;
+      bottomTrim.position.y = -h / 2;
+      group.add(bottomTrim);
+    }
 
     // ── D. HARDWARE FITTER (AUTHENTIC GOLDEN BRASS FRAME) ──
+    const isBlackFitter = String(attachmentStyle).toLowerCase().includes('black');
     const brassMat = new THREE.MeshStandardMaterial({
-      color: 0xd4af37, // Polished warm brass / golden frame
-      metalness: 0.85,
-      roughness: 0.22,
+      color: isBlackFitter ? 0x18191c : 0xd4af37,
+      metalness: isBlackFitter ? 0.45 : 0.85,
+      roughness: isBlackFitter ? 0.65 : 0.22,
     });
 
     const isClipOn = String(attachmentStyle).toLowerCase().includes('bulb') || String(attachmentStyle).toLowerCase().includes('clip');
@@ -1294,7 +1579,7 @@ export default function Lampshade3DViewer({
       group.add(collarMesh);
 
       // 2. 3 Radial Spokes with realistic upward bend to top rim wire
-      const spokeCount = 3;
+      const spokeCount = isVNotchBell ? 4 : 3;
       for (let i = 0; i < spokeCount; i++) {
         const angle = (i * 2 * Math.PI) / spokeCount;
         const cos = Math.cos(angle);
@@ -1359,24 +1644,16 @@ export default function Lampshade3DViewer({
       // Fit sphere comfortably in viewport with 22% padding
       const idealDist = (sphere.radius / Math.sin(fovRad / 2)) * 1.22;
 
-      if (!isCameraInitializedRef.current) {
-        // Initial Mount: Position camera at appealing 3/4 beauty product angle with clear view into top opening
+      const curDist = camera.position.distanceTo(controls.target);
+      const isOutOfRange = curDist > idealDist * 1.4 || curDist < idealDist * 0.6;
+      if (!isCameraInitializedRef.current || isOutOfRange) {
+        // Position camera at appealing 3/4 angle perfectly framing the shade
         camera.position.set(idealDist * 0.65, idealDist * 0.58, idealDist * 0.88);
         controls.target.set(0, 0, 0);
         isCameraInitializedRef.current = true;
       } else {
-        // Variant change (covering, attachment, or dimensions): PRESERVE user's camera angle and position!
-        const prevRad = prevRadiusRef.current || sphere.radius;
-        // If dimensions change significantly (> 0.08"), adapt distance proportionally along existing viewing vector
-        if (Math.abs(sphere.radius - prevRad) > 0.08 && prevRad > 0.001) {
-          const dir = camera.position.clone().sub(controls.target);
-          const curDist = dir.length();
-          if (curDist > 0.001) {
-            dir.normalize();
-            const newDist = (curDist / prevRad) * sphere.radius;
-            camera.position.copy(controls.target).addScaledVector(dir, newDist);
-          }
-        }
+        const dir = camera.position.clone().sub(controls.target).normalize();
+        camera.position.copy(controls.target).addScaledVector(dir, idealDist);
       }
 
       prevRadiusRef.current = sphere.radius;
@@ -1388,7 +1665,7 @@ export default function Lampshade3DViewer({
     // Apply active lighting state (Daylight Studio vs. Evening Glow) to all materials and lights
     applyLightingState(isLampOnRef.current);
     requestFrame();
-  }, [numTop, numBottom, numHeight, coveringName, coveringImageUrl, attachmentStyle, requestFrame, applyLightingState]);
+  }, [numTop, numBottom, numHeight, coveringName, coveringImageUrl, attachmentStyle, shapeType, requestFrame, applyLightingState]);
 
   // Handle Lamp Light Toggle
   const handleToggleLight = () => {

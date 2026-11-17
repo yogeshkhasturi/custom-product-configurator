@@ -16,6 +16,8 @@ const productSchema = new mongoose.Schema(
     steps: { type: [mongoose.Schema.Types.Mixed], default: [] },
     configuratorDisplayMode: { type: String, enum: ['normal', 'steps'], default: 'normal' },
     stepsConfig: { type: [mongoose.Schema.Types.Mixed], default: [] },
+    model3dUrl: { type: String, default: '' },
+    modelUsdzUrl: { type: String, default: '' },
   },
   {
     timestamps: true,

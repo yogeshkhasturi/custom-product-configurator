@@ -19,7 +19,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@universal/image-to-3d-ar": ["./lib/universal-ar/index.js"],
+      "@universal/image-to-3d-ar/*": ["./lib/universal-ar/*"]
     }
   },
   "include": [

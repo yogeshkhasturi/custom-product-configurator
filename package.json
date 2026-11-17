@@ -10,6 +10,7 @@
     "server": "npm --prefix server run dev",
     "client": "npm --prefix client run dev",
     "start": "npm --prefix server start",
-    "build": "npm --prefix client run build"
+    "build": "npm --prefix client run build",
+    "sync:3d": "node scripts/sync3dLib.js"
   }
 }

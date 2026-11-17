@@ -48,6 +48,10 @@ import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import { useCreateProductMutation, useUpdateProductMutation } from '../../../lib/productsApi';
 import ImageUploader from './ImageUploader';
 import { resolveImageUrl } from '../../../lib/pricingUtils';
+import ViewInArIcon from '@mui/icons-material/ViewInAr';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
+import PhotoTo3DDialog from './PhotoTo3DDialog';
+import ImageTo3DViewer from '../../components/ImageTo3DViewer';
 
 const FIELD_TYPES = ['select', 'dropdown', 'radio', 'checkbox', 'color', 'swatch', 'number', 'text', 'textarea'];
 const FIELD_TYPE_LABELS = {
@@ -144,6 +148,8 @@ export default function ProductForm({ initialData, mode = 'create' }) {
     basePrice: initialData?.basePrice ?? '',
     images: initialData?.images || [],
     status: initialData?.status || 'active',
+    model3dUrl: initialData?.model3dUrl || '',
+    modelUsdzUrl: initialData?.modelUsdzUrl || '',
     configuratorDisplayMode: initialData?.configuratorDisplayMode || 'normal',
     customizationFields: (initialData?.customizationFields || []).map((f) => ({ ...f, _expanded: false })),
     configurations: (initialData?.configurations || []).map((c) => ({ ...c, images: c.images || [] })),
@@ -162,6 +168,7 @@ export default function ProductForm({ initialData, mode = 'create' }) {
         })),
   });
 
+  const [photoTo3dOpen, setPhotoTo3dOpen] = useState(false);
   const setField = (key, val) => setForm((p) => ({ ...p, [key]: val }));
 
   // Steps
@@ -312,6 +319,8 @@ export default function ProductForm({ initialData, mode = 'create' }) {
         name: form.name, description: form.description, sku: form.sku,
         basePrice: parseFloat(form.basePrice), images: form.images, status: form.status,
         configuratorDisplayMode: form.configuratorDisplayMode,
+        model3dUrl: form.model3dUrl || '',
+        modelUsdzUrl: form.modelUsdzUrl || '',
         customizationFields: form.customizationFields.map(({ _expanded, ...f }, i) => ({
           ...f, order: i,
           min: f.min !== '' ? Number(f.min) : undefined,
@@ -455,6 +464,117 @@ export default function ProductForm({ initialData, mode = 'create' }) {
       <Section title="Product Images" icon={<ViewColumnIcon />}>
         <Paper variant="outlined" sx={{ p: 3 }}>
           <ImageUploader images={form.images} onChange={(imgs) => setField('images', imgs)} />
+        </Paper>
+      </Section>
+
+      {/* 3D Model & Augmented Reality */}
+      <Section
+        title="3D Model & Augmented Reality (Photo-to-3D)"
+        subtitle="Attach or generate interactive 3D and AR models for this product"
+        icon={<ViewInArIcon />}
+        action={
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AutoAwesomeIcon />}
+            onClick={() => setPhotoTo3dOpen(true)}
+            sx={{
+              bgcolor: '#0284c7',
+              '&:hover': { bgcolor: '#0369a1' },
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
+          >
+            Generate 3D with AI
+          </Button>
+        }
+      >
+        <Paper variant="outlined" sx={{ p: 3 }}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={7}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  label="3D Model GLB URL"
+                  size="small"
+                  value={form.model3dUrl}
+                  onChange={(e) => setField('model3dUrl', e.target.value)}
+                  placeholder="e.g. /uploads/ar-models/model.glb or https://cdn.domain.com/model.glb"
+                  helperText="Supports binary .glb models with PBR textures and metric AR calibration"
+                />
+                <TextField
+                  fullWidth
+                  label="iOS USDZ Model URL (Optional)"
+                  size="small"
+                  value={form.modelUsdzUrl}
+                  onChange={(e) => setField('modelUsdzUrl', e.target.value)}
+                  placeholder="e.g. /uploads/ar-models/model.usdz"
+                  helperText="Required for native Apple QuickLook AR on iOS devices"
+                />
+
+                <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mt: 1 }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<AutoAwesomeIcon />}
+                    onClick={() => setPhotoTo3dOpen(true)}
+                    sx={{ textTransform: 'none', borderColor: '#0284c7', color: '#0284c7' }}
+                  >
+                    Open 3D Model Studio
+                  </Button>
+                  {form.model3dUrl && (
+                    <Button
+                      variant="text"
+                      color="error"
+                      onClick={() => {
+                        setField('model3dUrl', '');
+                        setField('modelUsdzUrl', '');
+                      }}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      Clear 3D Model
+                    </Button>
+                  )}
+                </Box>
+              </Box>
+            </Grid>
+
+            <Grid item xs={12} md={5}>
+              <Box
+                sx={{
+                  width: '100%',
+                  height: 220,
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  overflow: 'hidden',
+                  bgcolor: '#f8fafc',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {form.model3dUrl ? (
+                  <ImageTo3DViewer
+                    src={form.model3dUrl}
+                    usdzSrc={form.modelUsdzUrl}
+                    alt={form.name || 'Product 3D Model'}
+                    autoRotate
+                    height="100%"
+                    width="100%"
+                  />
+                ) : (
+                  <Box sx={{ textAlign: 'center', p: 2, color: '#94a3b8' }}>
+                    <ViewInArIcon sx={{ fontSize: 44, mb: 0.5, opacity: 0.6 }} />
+                    <Typography variant="body2" fontWeight={600}>
+                      No 3D Model Attached
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Click "Generate 3D with AI" to create one from product photos.
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Grid>
+          </Grid>
         </Paper>
       </Section>
 
@@ -964,6 +1084,18 @@ export default function ProductForm({ initialData, mode = 'create' }) {
           <Button variant="contained" onClick={saveEditDialog}>Save</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Photo-to-3D AI Generation Studio Modal */}
+      <PhotoTo3DDialog
+        open={photoTo3dOpen}
+        onClose={() => setPhotoTo3dOpen(false)}
+        productName={form.name}
+        productImages={form.images}
+        onApplyModel={(modelUrl, usdzUrl) => {
+          setField('model3dUrl', modelUrl);
+          if (usdzUrl) setField('modelUsdzUrl', usdzUrl);
+        }}
+      />
     </Box>
   );
 }
