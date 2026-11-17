@@ -40,8 +40,8 @@ if (serveFrontend) {
       dev: !isProduction,
       dir: path.join(__dirname, "../client"),
     });
-
-    nextHandle = nextApp.getRequestHandler();
+    // NOTE: getRequestHandler() is intentionally NOT called here.
+    // It is called only after nextApp.prepare() succeeds in startServer().
   }
 }
 
@@ -117,23 +117,11 @@ app.use("/api", (req, res) => {
 // --------------------------------------------------
 // Next.js fallback (Production only)
 // --------------------------------------------------
-// In production, everything that wasn't handled above goes to Next.js:
-//   /
-//   /products
-//   /about
-//   /_next/static/...
-//   /_next/image/...
-//   /favicon.ico
-//
-// In development, Next runs independently (e.g. on port 3000).
+// The catch-all is registered AFTER prepare() completes in startServer().
+// A placeholder is set here only for the non-Next.js (dev API-only) case.
 // --------------------------------------------------
-if (nextHandle) {
-  app.all("*", (req, res) => {
-    return nextHandle(req, res);
-  });
-} else {
-  // If Next.js is running separately in development (e.g. port 3000),
-  // provide a clear root status response instead of 404
+if (!nextApp) {
+  // Next.js is running separately in development (e.g. on port 3000)
   app.get("/", (req, res) => {
     res.json({
       success: true,
@@ -182,10 +170,18 @@ async function startServer() {
   if (nextApp) {
     try {
       await nextApp.prepare();
+      // Only obtain the handler and register the catch-all AFTER prepare() succeeds.
+      // This prevents "prepare() must be called before performing this operation" errors.
+      nextHandle = nextApp.getRequestHandler();
       upgradeHandler = nextApp.getUpgradeHandler();
+      app.all("*", (req, res) => nextHandle(req, res));
       console.log(`Next.js (${isProduction ? "production" : "development"}) ready.`);
     } catch (err) {
       console.error("Failed to prepare Next.js:", err);
+      // Fall back to a plain 404 so the server stays alive even if Next.js fails
+      app.all("*", (req, res) => {
+        res.status(503).json({ success: false, message: "Frontend unavailable. Next.js failed to start." });
+      });
     }
   }
 
