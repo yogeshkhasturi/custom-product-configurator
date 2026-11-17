@@ -51,9 +51,10 @@ export class ARExporter {
     anchor.setAttribute('rel', 'ar');
     anchor.setAttribute('href', usdzUrl);
 
-    // Apple QuickLook requires a child img element to activate
+    // Apple QuickLook requires a child img element with valid src to activate
     const img = document.createElement('img');
     img.alt = 'AR QuickLook';
+    img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"%3E%3C/svg%3E';
     anchor.appendChild(img);
     document.body.appendChild(anchor);
     anchor.click();
@@ -72,8 +73,8 @@ export class ARExporter {
     const fallbackUrl = window.location.href;
     const sceneViewerUrl =
       `intent://arvr.google.com/scene-viewer/1.0?file=${encodeURIComponent(glbUrl)}` +
-      `&mode=ar_only&resizable=false&title=${encodeURIComponent(title)}` +
-      `#Intent;scheme=https;package=com.google.ar.core;action=android.intent.action.VIEW;` +
+      `&mode=ar_preferred&resizable=false&title=${encodeURIComponent(title)}` +
+      `#Intent;scheme=https;package=com.google.android.googlequicksearchbox;action=android.intent.action.VIEW;` +
       `S.browser_fallback_url=${encodeURIComponent(fallbackUrl)};end;`;
 
     window.location.href = sceneViewerUrl;

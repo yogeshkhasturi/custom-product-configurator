@@ -291,9 +291,10 @@ export function launchIOSQuickLook(url, options = {}) {
   anchor.setAttribute('rel', 'ar');
   anchor.setAttribute('href', finalUrl);
 
-  // iOS Quick Look requires an <img> child element inside <a rel="ar">
+  // iOS Quick Look requires an <img> child element with a valid src attribute inside <a rel="ar">
   const img = document.createElement('img');
   img.setAttribute('alt', 'View in AR');
+  img.setAttribute('src', 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"%3E%3C/svg%3E');
   anchor.appendChild(img);
 
   document.body.appendChild(anchor);
@@ -312,10 +313,11 @@ export function launchIOSQuickLook(url, options = {}) {
  * Trigger Google Scene Viewer on Android with true 1:1 scale and back-to-store link
  */
 export function launchAndroidSceneViewer(fullGlbUrl, title = 'Custom Lampshade', linkUrl = '') {
+  const fallback = linkUrl || fullGlbUrl;
   let intentUrl =
     `intent://arvr.google.com/scene-viewer/1.0?` +
     `file=${encodeURIComponent(fullGlbUrl)}` +
-    `&mode=ar_only` +
+    `&mode=ar_preferred` +
     `&resizable=false` +
     `&title=${encodeURIComponent(title)}`;
 
@@ -323,9 +325,10 @@ export function launchAndroidSceneViewer(fullGlbUrl, title = 'Custom Lampshade',
     intentUrl += `&link=${encodeURIComponent(linkUrl)}`;
   }
 
+  // Scene Viewer is hosted by the Google App (com.google.android.googlequicksearchbox)
   intentUrl +=
-    `#Intent;scheme=https;package=com.google.ar.core;action=android.intent.action.VIEW;` +
-    `S.browser_fallback_url=${encodeURIComponent(linkUrl || fullGlbUrl)};end;`;
+    `#Intent;scheme=https;package=com.google.android.googlequicksearchbox;action=android.intent.action.VIEW;` +
+    `S.browser_fallback_url=${encodeURIComponent(fallback)};end;`;
 
   window.location.href = intentUrl;
 }
