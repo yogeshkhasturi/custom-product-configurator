@@ -778,6 +778,12 @@ export default function Lampshade3DViewer({
   const [arPlacement, setArPlacement] = useState('shade'); // 'shade' | 'table_lamp'
   const [copiedLink, setCopiedLink] = useState(false);
   const [deviceInfo, setDeviceInfo] = useState({ isMobile: false, isIOS: false, isAndroid: false });
+  const [arReadyData, setArReadyData] = useState(null);
+
+  // Invalidate cached AR model when configuration changes
+  useEffect(() => {
+    setArReadyData(null);
+  }, [topDiameter, bottomDiameter, height, coveringName, coveringImageUrl, attachmentStyle, shapeType, isLampOn, arPlacement]);
 
   useEffect(() => {
     setDeviceInfo(getDeviceInfo());
@@ -1740,6 +1746,26 @@ export default function Lampshade3DViewer({
       return;
     }
 
+    const productTitle = `${numTop}"×${numBottom}"×${numHeight}" Custom Lampshade`;
+    const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
+
+    // Direct synchronous launch if model already generated (guarantees user gesture!)
+    if (arReadyData) {
+      if (dev.isIOS && arReadyData.usdzUrl) {
+        launchIOSQuickLook(arReadyData.usdzUrl, {
+          lockScale: true,
+          callToAction: 'Order Custom Shade',
+          checkoutTitle: productTitle,
+          canonicalWebPageURL: currentUrl,
+        });
+        return;
+      }
+      if (dev.isAndroid && arReadyData.glbUrl) {
+        launchAndroidSceneViewer(arReadyData.glbUrl, productTitle, currentUrl);
+        return;
+      }
+    }
+
     const group = shadeGroupRef.current;
     if (!group) {
       setArError('3D model is still initializing. Please wait a moment.');
@@ -1760,15 +1786,13 @@ export default function Lampshade3DViewer({
         arPlacement: activePlacement,
       });
 
-      const productTitle = `${numTop}"×${numBottom}"×${numHeight}" Custom Lampshade`;
-      const currentUrl = typeof window !== 'undefined' ? window.location.href : '';
-
       if (dev.isIOS) {
         setArStatusText('Preparing Apple AR Quick Look...');
         const usdzBlob = await exportToUSDZ(arGroup);
         setArStatusText('Packaging model for Apple Quick Look...');
         const uploadResult = await uploadARModelToServer(usdzBlob, 'usdz');
         const usdzUrl = uploadResult.fullUrl || `${window.location.origin}${uploadResult.relativeUrl}`;
+        setArReadyData({ usdzUrl, title: productTitle });
         setArStatusText('Opening iOS Camera...');
         launchIOSQuickLook(usdzUrl, {
           lockScale: true,
@@ -1782,6 +1806,7 @@ export default function Lampshade3DViewer({
         setArStatusText('Connecting to AR Camera...');
         const uploadResult = await uploadARModelToServer(glbBlob, 'glb');
         const glbUrl = uploadResult.fullUrl || `${window.location.origin}${uploadResult.relativeUrl}`;
+        setArReadyData({ glbUrl, title: productTitle });
         setArStatusText('Opening Camera...');
         launchAndroidSceneViewer(
           glbUrl,
@@ -1992,7 +2017,7 @@ export default function Lampshade3DViewer({
             )
           }
           sx={{
-            bgcolor: '#0284c7',
+            bgcolor: arReadyData ? '#059669' : '#0284c7',
             color: '#ffffff',
             fontWeight: 700,
             fontSize: { xs: 11, sm: 12 },
@@ -2001,14 +2026,14 @@ export default function Lampshade3DViewer({
             px: { xs: 1.4, sm: 1.8 },
             py: 0.45,
             whiteSpace: 'nowrap',
-            boxShadow: '0 2px 10px rgba(2, 132, 199, 0.45)',
+            boxShadow: arReadyData ? '0 2px 10px rgba(5, 150, 105, 0.5)' : '0 2px 10px rgba(2, 132, 199, 0.45)',
             '&:hover': {
-              bgcolor: '#0369a1',
-              boxShadow: '0 4px 14px rgba(2, 132, 199, 0.6)',
+              bgcolor: arReadyData ? '#047857' : '#0369a1',
+              boxShadow: arReadyData ? '0 4px 14px rgba(5, 150, 105, 0.65)' : '0 4px 14px rgba(2, 132, 199, 0.6)',
             },
           }}
         >
-          {arLoading ? (arStatusText || 'Preparing...') : 'Try in Your Room'}
+          {arLoading ? (arStatusText || 'Preparing...') : arReadyData ? '📸 Open AR Camera' : 'Try in Your Room'}
         </Button>
 
         {/* Lamp Light Toggle Button */}
