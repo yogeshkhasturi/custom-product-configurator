@@ -39,6 +39,8 @@ if (serveFrontend) {
     nextApp = next({
       dev: !isProduction,
       dir: path.join(__dirname, "../client"),
+      // In production, point Next.js at the pre-built .next directory explicitly
+      conf: isProduction ? { distDir: path.join(__dirname, "../client/.next") } : undefined,
     });
     // NOTE: getRequestHandler() is intentionally NOT called here.
     // It is called only after nextApp.prepare() succeeds in startServer().
@@ -173,15 +175,14 @@ async function startServer() {
       // Only obtain the handler and register the catch-all AFTER prepare() succeeds.
       // This prevents "prepare() must be called before performing this operation" errors.
       nextHandle = nextApp.getRequestHandler();
-      upgradeHandler = nextApp.getUpgradeHandler();
+      upgradeHandler = nextApp.getUpgradeHandler?.();
       app.all("*", (req, res) => nextHandle(req, res));
       console.log(`Next.js (${isProduction ? "production" : "development"}) ready.`);
     } catch (err) {
-      console.error("Failed to prepare Next.js:", err);
-      // Fall back to a plain 404 so the server stays alive even if Next.js fails
-      app.all("*", (req, res) => {
-        res.status(503).json({ success: false, message: "Frontend unavailable. Next.js failed to start." });
-      });
+      console.error("[FATAL] Failed to prepare Next.js:", err.message);
+      console.error(err.stack);
+      // Re-throw so PM2 restarts the process and the real error is visible in logs
+      throw err;
     }
   }
 
