@@ -1569,9 +1569,11 @@ export default function Lampshade3DViewer({
       if (dev.isIOS) {
         setArStatusText('Preparing Apple AR Quick Look...');
         const usdzBlob = await exportToUSDZ(arGroup);
-        const blobUrl = URL.createObjectURL(usdzBlob);
+        setArStatusText('Packaging model for Apple Quick Look...');
+        const uploadResult = await uploadARModelToServer(usdzBlob, 'usdz');
+        const usdzUrl = uploadResult.fullUrl || `${window.location.origin}${uploadResult.relativeUrl}`;
         setArStatusText('Opening iOS Camera...');
-        launchIOSQuickLook(blobUrl, {
+        launchIOSQuickLook(usdzUrl, {
           lockScale: true,
           callToAction: 'Order Custom Shade',
           checkoutTitle: productTitle,
@@ -1582,9 +1584,10 @@ export default function Lampshade3DViewer({
         const glbBlob = await exportToGLB(arGroup);
         setArStatusText('Connecting to AR Camera...');
         const uploadResult = await uploadARModelToServer(glbBlob, 'glb');
+        const glbUrl = uploadResult.fullUrl || `${window.location.origin}${uploadResult.relativeUrl}`;
         setArStatusText('Opening Camera...');
         launchAndroidSceneViewer(
-          uploadResult.fullUrl,
+          glbUrl,
           productTitle,
           currentUrl
         );

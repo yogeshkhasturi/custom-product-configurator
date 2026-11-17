@@ -71,8 +71,20 @@ app.use(
 
 app.use(express.json({ limit: "10mb" }));
 
-// Serve uploaded images as static files
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Serve uploaded images and 3D AR models as static files with correct MIME types
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"), {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".usdz")) {
+        res.setHeader("Content-Type", "model/vnd.usdz+zip");
+      } else if (filePath.endsWith(".glb")) {
+        res.setHeader("Content-Type", "model/gltf-binary");
+      }
+      res.setHeader("Access-Control-Allow-Origin", "*");
+    },
+  })
+);
 app.use("/images", express.static(path.join(__dirname, "../client/public/images")));
 
 // --------------------------------------------------

@@ -251,6 +251,11 @@ export async function uploadARModelToServer(blob, format = 'glb') {
     throw new Error(data.message || 'Error processing AR model on server');
   }
 
+  // Double fail-safe: Ensure fullUrl is a clean, absolute URL using the client's current origin
+  if (data.relativeUrl && typeof window !== 'undefined') {
+    data.fullUrl = `${window.location.origin}${data.relativeUrl}`;
+  }
+
   return data;
 }
 

@@ -49,11 +49,14 @@ router.post('/export', upload.single('model'), (req, res) => {
     fs.writeFileSync(dest, req.file.buffer);
 
     // Build absolute URL for Google Scene Viewer / Apple Quick Look
-    // Respect forwarded host and proto from Next.js rewrites and ngrok tunnel
-    const host = req.get('x-forwarded-host') || req.get('host') || '127.0.0.1:5000';
-    const protocol =
+    // Respect forwarded host and proto from Next.js rewrites, reverse proxies (Cloudways/Nginx/Varnish), and ngrok tunnel
+    const rawHost = (req.get('x-forwarded-host') || req.get('host') || '127.0.0.1:5000').toString();
+    const host = rawHost.split(',')[0].trim();
+    const rawProto = (
       req.get('x-forwarded-proto') ||
-      (req.protocol === 'https' || host.includes('ngrok') ? 'https' : 'http');
+      (req.protocol === 'https' || host.includes('ngrok') ? 'https' : 'http')
+    ).toString();
+    const protocol = rawProto.split(',')[0].trim();
     const relativeUrl = `/uploads/ar-models/${filename}`;
     const fullUrl = `${protocol}://${host}${relativeUrl}`;
 
